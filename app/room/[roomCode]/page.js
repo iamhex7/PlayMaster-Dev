@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Copy, Users, Play, Upload, CheckCircle, RotateCw } from 'lucide-react'
+import { Copy, Users, Play, Upload, RotateCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import AnnouncementView from '@/components/AnnouncementView'
 
 const ACCEPTED_FILE_TYPES = '.docx,.pdf,.png'
 const ACCEPTED_EXTENSIONS = ['docx', 'pdf', 'png']
@@ -12,7 +13,7 @@ const ACCEPTED_EXTENSIONS = ['docx', 'pdf', 'png']
 async function syncRulesToSupabase(roomCode, rulesText, rulesFileName) {
   if (!supabase) return
   try {
-    const { error } = await supabase.from('rooms').upsert(
+    await supabase.from('rooms').upsert(
       {
         room_code: roomCode,
         rules_text: rulesText || null,
@@ -21,14 +22,13 @@ async function syncRulesToSupabase(roomCode, rulesText, rulesFileName) {
       },
       { onConflict: 'room_code' }
     )
-    if (error) console.warn('Rules sync (rooms table):', error.message)
   } catch (_) {}
 }
 
 export default function RoomPage() {
   const params = useParams()
   const router = useRouter()
-  const roomCode = decodeURIComponent(params.password)
+  const roomCode = decodeURIComponent(params.roomCode ?? '')
   const [count, setCount] = useState(0)
   const [players, setPlayers] = useState([])
   const [copied, setCopied] = useState(false)
@@ -36,16 +36,30 @@ export default function RoomPage() {
   const [showHostConsole, setShowHostConsole] = useState(false)
   const [rulesText, setRulesText] = useState('')
   const [rulesFileName, setRulesFileName] = useState('')
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [roomStatus, setRoomStatus] = useState('LOBBY')
+  const [gameConfig, setGameConfig] = useState(null)
   const [clientId] = useState(() => (typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36)))
   const isHost = typeof window !== 'undefined' && localStorage.getItem('playmaster_host') === roomCode
 
   useEffect(() => {
-    if (!supabase) return
-
-    const channelName = `room_${roomCode}`
-    const channel = supabase.channel(channelName, {
-      config: { presence: { key: clientId } }
+    if (!supabase || !roomCode) return
+    fetch('/api/game', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'enterRoom', roomCode })
     })
+      .then((res) => res.json().catch(() => ({})))
+      .then((data) => {
+        if (data?.id) console.log('房间创建成功：ID 为', data.id)
+      })
+      .catch(() => {})
+  }, [roomCode])
+
+  useEffect(() => {
+    if (!supabase) return
+    const channelName = `room_${roomCode}`
+    const channel = supabase.channel(channelName, { config: { presence: { key: clientId } } })
 
     channel
       .on('presence', { event: 'sync' }, () => {
@@ -58,6 +72,20 @@ export default function RoomPage() {
         setPlayers(presenceList)
         setCount(presenceList.length)
       })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'rooms',
+        filter: `room_code=eq.${roomCode}`
+      }, (payload) => {
+        const newStatus = payload?.new?.status
+        const newConfig = payload?.new?.game_config
+        if (newStatus === 'BRIEFING') {
+          setRoomStatus('BRIEFING')
+          if (newConfig) setGameConfig(newConfig)
+          router.push(`/room/${encodeURIComponent(roomCode)}/briefing`)
+        }
+      })
       .subscribe(async (status) => {
         if (status !== 'SUBSCRIBED') return
         await channel.track({
@@ -68,11 +96,26 @@ export default function RoomPage() {
       })
 
     return () => {
-      channel.untrack().then(() => {
-        supabase.removeChannel(channel)
-      })
+      channel.untrack().then(() => supabase.removeChannel(channel))
     }
-  }, [roomCode, clientId, isHost])
+  }, [roomCode, clientId, isHost, router])
+
+  useEffect(() => {
+    if (!supabase || !roomCode) return
+    supabase
+      .from('rooms')
+      .select('status, game_config')
+      .eq('room_code', roomCode)
+      .single()
+      .then(({ data }) => {
+        if (data?.status === 'BRIEFING' && data?.game_config) {
+          setRoomStatus('BRIEFING')
+          setGameConfig(data.game_config)
+          router.push(`/room/${encodeURIComponent(roomCode)}/briefing`)
+        }
+      })
+      .catch(() => {})
+  }, [roomCode, router])
 
   const handleLeave = () => {
     if (typeof window !== 'undefined' && localStorage.getItem('playmaster_host') === roomCode) {
@@ -116,23 +159,55 @@ export default function RoomPage() {
   const handleRulesTextChange = (e) => {
     const val = e.target.value
     setRulesText(val)
-    if (val.trim()) {
-      syncRulesToSupabase(roomCode, val, rulesFileName)
+    if (val.trim()) syncRulesToSupabase(roomCode, val, rulesFileName)
+  }
+
+  const handleYourTurn = async () => {
+    const hasText = rulesText.trim().length > 0
+    if (!hasText) {
+      alert('请先输入或粘贴游戏规则，或上传 PDF')
+      return
+    }
+
+    setIsProcessing(true)
+    try {
+      const res = await fetch('/api/game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'parseRules', roomCode, rulesText: rulesText.trim() })
+      })
+      const data = await res.json().catch(() => {})
+
+      if (!res.ok) {
+        alert(data.error || '规则解析失败')
+        return
+      }
+
+      setRoomStatus('BRIEFING')
+      setGameConfig(data.game_config ?? null)
+      setShowHostConsole(false)
+      router.push(`/room/${encodeURIComponent(roomCode)}/briefing`)
+    } catch (e) {
+      console.error('Parse rules error:', e)
+      alert('规则解析失败：' + (e?.message || '网络错误'))
+    } finally {
+      setIsProcessing(false)
     }
   }
 
-  const handleYourTurn = () => {
-    syncRulesToSupabase(roomCode, rulesText, rulesFileName)
-    // No additional interaction per requirement
+  const handleAnnouncementContinue = () => {
+    setRoomStatus('LOBBY')
+    setGameConfig(null)
   }
 
   const formattedCode = roomCode.split('').join(' ')
+  const showAnnouncement = roomStatus === 'BRIEFING' && gameConfig
 
   return (
     <main
       className="min-h-screen flex flex-col items-center justify-center p-4 relative"
       style={{
-        backgroundImage: 'url(/casino-bg.jpg)',
+        backgroundImage: 'linear-gradient(135deg, #1a2f24 0%, #2d4a3e 40%, #1e3a2e 100%)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundColor: '#2d4a3e'
@@ -140,13 +215,20 @@ export default function RoomPage() {
     >
       <button
         onClick={handleLeave}
-        className="absolute top-6 left-6 px-4 py-2 rounded-lg bg-black/30 text-gray-300 hover:bg-black/50 transition-colors text-sm border border-white/10"
+        className="absolute top-6 left-6 px-4 py-2 rounded-lg bg-black/30 text-gray-300 hover:bg-black/50 transition-colors text-sm border border-white/10 z-40"
       >
         Leave Lobby
       </button>
 
       <AnimatePresence mode="wait">
-        {!showHostConsole ? (
+        {showAnnouncement ? (
+          <AnnouncementView
+            key="announcement"
+            announcementScript={gameConfig.opening_speech ?? gameConfig.announcement_script}
+            gameName={gameConfig.game_name}
+            onContinue={handleAnnouncementContinue}
+          />
+        ) : !showHostConsole ? (
           <motion.div
             key="lobby"
             initial={{ opacity: 0 }}
@@ -198,29 +280,17 @@ export default function RoomPage() {
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        index === 0
-                          ? 'bg-gradient-to-br from-orange-400 to-orange-600'
-                          : index % 2 === 0
-                            ? 'bg-gradient-to-br from-orange-400 to-orange-600'
-                            : 'bg-gradient-to-br from-blue-400 to-blue-600'
+                        index === 0 ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 'bg-gradient-to-br from-blue-400 to-blue-600'
                       }`}
                     >
-                      <span className="text-white text-xs font-bold">
-                        {index === 0 ? 'H' : (index + 1)}
-                      </span>
+                      <span className="text-white text-xs font-bold">{index === 0 ? 'H' : index + 1}</span>
                     </div>
                     <span className="text-gray-200">
                       {player.isSelf ? (isHost ? 'You (Host)' : 'You') : (player.name || `Player ${index + 1}`)}
                     </span>
                   </div>
-                  <span
-                    className={`px-3 py-1 rounded text-xs font-medium ${
-                      index % 2 === 0
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                    }`}
-                  >
-                    {index % 2 === 0 ? 'READY' : 'JOINED'}
+                  <span className="px-3 py-1 rounded text-xs font-medium bg-gray-500/20 text-gray-400 border border-gray-500/30">
+                    JOINED
                   </span>
                 </motion.div>
               ))}
@@ -255,9 +325,7 @@ export default function RoomPage() {
               GAME START
             </button>
 
-            <p className="mt-4 text-xs text-gray-500 text-center">
-              Waiting for all players to be ready...
-            </p>
+            <p className="mt-4 text-xs text-gray-500 text-center">Waiting for all players to be ready...</p>
           </motion.div>
         ) : (
           <motion.div
@@ -270,9 +338,7 @@ export default function RoomPage() {
           >
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h2 className="text-2xl font-semibold text-white tracking-wider">
-                  HOST CONSOLE
-                </h2>
+                <h2 className="text-2xl font-semibold text-white tracking-wider">HOST CONSOLE</h2>
                 <p className="text-sm text-gray-500 mt-1">Dealing Roles</p>
               </div>
               <div className="flex items-center gap-3">
@@ -304,30 +370,19 @@ export default function RoomPage() {
                       {player.isSelf ? (isHost ? 'You (Host)' : 'You') : (player.name || `Player ${index + 1}`)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-emerald-500/20 text-emerald-400">
-                      <CheckCircle className="w-3 h-3" />
-                      DEALT
-                    </span>
-                    <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-amber-500/20 text-amber-400">
-                      <CheckCircle className="w-3 h-3" />
-                      CONFIRMED
-                    </span>
-                  </div>
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-emerald-500/20 text-emerald-400">
+                    DEALT
+                  </span>
                 </motion.div>
               ))}
             </div>
 
             <div className="mb-6 space-y-3">
-              <p className="text-xs text-gray-500">
-                请上传或输入游戏规则，让 AI 主持人开始学习
-              </p>
+              <p className="text-xs text-gray-500">请上传或输入游戏规则，让 AI 主持人开始学习</p>
               <div className="flex flex-col gap-3">
                 <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-white/5 border border-dashed border-gray-500/30 cursor-pointer hover:bg-white/10 transition-colors">
                   <Upload className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-400">
-                    {rulesFileName || `上传 .docx / .pdf / .png`}
-                  </span>
+                  <span className="text-sm text-gray-400">{rulesFileName || '上传 .docx / .pdf / .png'}</span>
                   <input
                     type="file"
                     accept={ACCEPTED_FILE_TYPES}
@@ -347,10 +402,17 @@ export default function RoomPage() {
 
             <button
               onClick={handleYourTurn}
-              className="w-full btn-gold py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold"
+              disabled={isProcessing}
+              className="w-full btn-gold py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-wait"
             >
-              <RotateCw className="w-4 h-4" />
-              YOUR TURN
+              {isProcessing ? (
+                <>
+                  <RotateCw className="w-4 h-4 animate-spin" />
+                  解析规则中...
+                </>
+              ) : (
+                <>YOUR TURN</>
+              )}
             </button>
 
             <button

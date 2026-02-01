@@ -4,8 +4,8 @@ Hackathon 项目 - 简单的房间实时在线人数展示应用。
 
 ## 功能
 
-1. **主页**：输入框输入房间密码 + 「进入房间」按钮
-2. **路由**：输入相同密码进入同一路由 `/room/[password]`
+1. **主页**：生成或输入房间码 + 「START AI HOST」进入房间
+2. **路由**：同一房间码进入同一路由 `/room/[roomCode]`
 3. **房间页**：使用 Supabase Realtime 实时显示当前房间在线人数
 4. **UI**：Tailwind CSS 简单样式
 
@@ -56,8 +56,10 @@ PlayMaster-Dev/
 │   ├── layout.js            # 根布局
 │   ├── page.js              # 主页
 │   └── room/
-│       └── [password]/
-│           └── page.js      # 房间页
+│       └── [roomCode]/
+│           ├── page.js     # 房间页
+│           └── briefing/
+│               └── page.js # 规则宣讲页
 ├── lib/
 │   └── supabase.js          # Supabase 客户端
 ├── .env.local               # 环境变量

@@ -37,19 +37,35 @@ function GameCard({ title, onClick, delay = 0 }) {
 export default function Home() {
   const router = useRouter()
 
-  const handleStartAIHost = () => {
+  const handleStartAIHost = async () => {
     const code = generateRoomCode()
     if (typeof window !== 'undefined') {
       localStorage.setItem('playmaster_host', code)
     }
-    router.push(`/room/${encodeURIComponent(code)}`)
+    try {
+      const res = await fetch('/api/game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'enterRoom', roomCode: code })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(data.error || '房间创建失败')
+        return
+      }
+      if (data.id) console.log('房间创建成功：ID 为', data.id)
+      router.push(`/room/${encodeURIComponent(code)}`)
+    } catch (e) {
+      console.error(e)
+      alert('房间创建失败：' + (e?.message || '网络错误'))
+    }
   }
 
   return (
     <main 
       className="min-h-screen flex flex-col items-center justify-center p-4 relative"
       style={{ 
-        backgroundImage: 'url(/casino-bg.jpg)',
+        backgroundImage: 'linear-gradient(135deg, #1a2f24 0%, #2d4a3e 40%, #1e3a2e 100%)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundColor: '#2d4a3e'
