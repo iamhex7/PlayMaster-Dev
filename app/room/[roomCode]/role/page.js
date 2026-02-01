@@ -1,8 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import InGameView from '@/components/game/InGameView'
+import ActionCard from '@/components/game/ActionCard'
+import DebugPanel from '@/components/game/DebugPanel'
+import { supabase } from '@/lib/supabase'
 
 export default function RoleRevealPage() {
   const params = useParams()
@@ -14,6 +18,10 @@ export default function RoleRevealPage() {
   const [error, setError] = useState(null)
   const [flipped, setFlipped] = useState(false)
   const [clientId, setClientId] = useState('')
+  const [showInGame, setShowInGame] = useState(false)
+  const [realGameState, setRealGameState] = useState(null)
+  const [gameStateLoading, setGameStateLoading] = useState(false)
+  const [bootstrapped, setBootstrapped] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -22,6 +30,82 @@ export default function RoleRevealPage() {
   }, [])
 
   const [retryCount, setRetryCount] = useState(0)
+
+  const fetchGameState = useCallback(async () => {
+    if (!roomCode) return null
+    const res = await fetch('/api/game', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getGameState', roomCode })
+    })
+    const data = await res.json().catch(() => ({}))
+    if (data.error) return null
+    setRealGameState(data.game_state ?? {})
+    return data.game_state
+  }, [roomCode])
+
+  useEffect(() => {
+    if (!showInGame || !roomCode) return
+    setGameStateLoading(true)
+    fetchGameState().then((gs) => {
+      setGameStateLoading(false)
+      if (!gs) return
+      const initialized = gs.initialized === true
+      const hasPending = gs.current_pending_action && gs.current_pending_action.target_uid
+      if (initialized && !hasPending && !bootstrapped) {
+        setBootstrapped(true)
+        fetch('/api/game', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'submitEvent', roomCode, lastEvent: { type: 'GAME_START' } })
+        })
+          .then((r) => r.json())
+          .then(() => {
+            let pollCount = 0
+            const poll = () => {
+              pollCount++
+              fetchGameState()
+              if (pollCount < 5) setTimeout(poll, 2000)
+            }
+            setTimeout(poll, 1500)
+          })
+      }
+    })
+  }, [showInGame, roomCode, fetchGameState, bootstrapped])
+
+  useEffect(() => {
+    if (!showInGame || !roomCode || !supabase) return
+    const channel = supabase
+      .channel(`room_game_state_${roomCode}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'rooms',
+          filter: `room_code=eq.${roomCode}`
+        },
+        (payload) => {
+          const gs = payload?.new?.game_state
+          if (gs && typeof gs === 'object') setRealGameState(gs)
+        }
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [showInGame, roomCode])
+
+  const gameStateForView = realGameState
+    ? {
+        game_name: realGameState.game_name ?? '霓虹劫案',
+        current_phase: realGameState.phase ?? realGameState.current_phase ?? '—',
+        current_day_round: realGameState.current_day_round ?? 1,
+        in_game_time: realGameState.in_game_time ?? '深夜 02:00',
+        active_player: realGameState.active_player ?? '',
+        game_logs: Array.isArray(realGameState.logs) ? realGameState.logs : (Array.isArray(realGameState.game_logs) ? realGameState.game_logs : [])
+      }
+    : null
 
   useEffect(() => {
     if (!roomCode) return
@@ -64,27 +148,56 @@ export default function RoleRevealPage() {
   const cards = Array.isArray(roleInfo?.cards) ? roleInfo.cards : []
   const hasRevealed = flipped
 
-  const fetchMyRole = () => {
-    if (!roomCode || !clientId) return
-    setLoading(true)
-    setError(null)
+  const pendingAction = realGameState?.current_pending_action
+  const pendingForMe =
+    pendingAction &&
+    String(pendingAction.target_uid) === String(clientId)
+      ? { type: pendingAction.type, ...(pendingAction.params || {}) }
+      : null
+
+  const handleActionComplete = (payload) => {
+    const isConfirm = pendingForMe?.type === 'CONFIRM'
+    const eventType = isConfirm && payload?.confirmed === true ? 'CONFIRM_YES' : isConfirm && payload?.confirmed === false ? 'CONFIRM_NO' : 'PLAYER_ACTION'
+    const eventPayload = { ...payload, action_code: pendingForMe?.action_code }
     fetch('/api/game', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getMyRole', roomCode, clientId })
-    })
-      .then((res) => res.json().catch(() => ({})))
-      .then((data) => {
-        setLoading(false)
-        if (data.error) {
-          setError(data.error)
-          return
-        }
-        setError(null)
-        setRoleInfo(data.role_info ?? {})
-        setInventory(data.inventory ?? {})
+      body: JSON.stringify({
+        action: 'submitEvent',
+        roomCode,
+        lastEvent: { type: eventType, uid: clientId, payload: eventPayload }
       })
-      .catch(() => { setLoading(false); setError('无法加载身份') })
+    })
+      .then((r) => r.json())
+      .then(() => {
+        setTimeout(() => fetchGameState(), 800)
+      })
+  }
+
+  if (showInGame && clientId) {
+    return (
+      <>
+        <InGameView
+          gameState={gameStateForView ?? {}}
+          myRole={roleInfo ?? {}}
+          myInventory={inventory ?? {}}
+          clientId={clientId}
+          onBack={() => setShowInGame(false)}
+        >
+          {pendingForMe && (
+            <AnimatePresence>
+              <ActionCard
+                key={pendingForMe.type + (pendingForMe.title || '')}
+                pending_action={pendingForMe}
+                onComplete={handleActionComplete}
+                onClose={() => fetchGameState()}
+              />
+            </AnimatePresence>
+          )}
+        </InGameView>
+        <DebugPanel roomCode={roomCode} clientId={clientId} />
+      </>
+    )
   }
 
   return (
@@ -216,27 +329,17 @@ export default function RoleRevealPage() {
                 )}
               </AnimatePresence>
             </motion.div>
-            <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
-              <button
-                type="button"
-                onClick={fetchMyRole}
-                disabled={loading}
-                className="px-5 py-2 rounded-lg border border-amber-500/50 text-amber-300 hover:bg-amber-500/20 text-sm disabled:opacity-50"
+            {hasRevealed && (
+              <motion.button
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                onClick={() => setShowInGame(true)}
+                className="mt-6 px-10 py-3.5 rounded-xl font-semibold text-black tracking-wide border-2 border-amber-400 bg-[#D4AF37] hover:bg-amber-300 shadow-[0_0_25px_rgba(212,168,83,0.4)] hover:shadow-[0_0_35px_rgba(212,168,83,0.5)] transition-all"
               >
-                刷新身份
-              </button>
-              {hasRevealed && (
-                <motion.button
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  onClick={() => router.push(`/room/${encodeURIComponent(roomCode)}`)}
-                  className="px-8 py-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-medium"
-                >
-                  返回房间
-                </motion.button>
-              )}
-            </div>
+                继续 (Continue)
+              </motion.button>
+            )}
           </>
         )}
       </div>

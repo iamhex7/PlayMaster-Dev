@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { parseRules, checkGeminiConnection } from '@/lib/gemini'
+import { processGameTick } from '@/lib/gemini/gm-engine'
 import { deal } from '@/lib/dealer'
+import { SAMPLE_GAMES } from '@/lib/constants'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
@@ -119,14 +121,28 @@ export async function POST(request) {
     }
 
     if (action === 'parseRules') {
-      let rulesText = body.rulesText || ''
-      let pdfBuffer = null
-      if (body.file && body.file instanceof Blob && body.file.size > 0) {
-        const buf = await body.file.arrayBuffer()
-        pdfBuffer = Buffer.from(buf)
-      }
-      if (!rulesText?.trim() && !pdfBuffer) {
-        return Response.json({ error: 'Provide rulesText or upload a PDF' }, { status: 400 })
+      const gameId = body.gameId?.trim()
+      const useSampleGame = gameId === 'neon-heist' && SAMPLE_GAMES['neon-heist']
+
+      let result
+      if (useSampleGame) {
+        result = SAMPLE_GAMES['neon-heist']
+      } else {
+        let rulesText = body.rulesText || ''
+        let pdfBuffer = null
+        if (body.file && body.file instanceof Blob && body.file.size > 0) {
+          const buf = await body.file.arrayBuffer()
+          pdfBuffer = Buffer.from(buf)
+        }
+        if (!rulesText?.trim() && !pdfBuffer) {
+          return Response.json({ error: 'Provide rulesText or upload a PDF' }, { status: 400 })
+        }
+        try {
+          result = await parseRules(rulesText || ' ', pdfBuffer)
+        } catch (parseErr) {
+          console.error('[parseRules] Gemini parse failed:', parseErr)
+          return Response.json({ error: '规则解析失败：' + (parseErr?.message || 'AI 解析错误') }, { status: 500 })
+        }
       }
 
       const { data: existing } = await supabase
@@ -142,14 +158,6 @@ export async function POST(request) {
           console.error('[parseRules] room insert failed:', insertErr.message)
           return Response.json({ error: '房间不存在且创建失败：' + insertErr.message }, { status: 500 })
         }
-      }
-
-      let result
-      try {
-        result = await parseRules(rulesText || ' ', pdfBuffer)
-      } catch (parseErr) {
-        console.error('[parseRules] Gemini parse failed:', parseErr)
-        return Response.json({ error: '规则解析失败：' + (parseErr?.message || 'AI 解析错误') }, { status: 500 })
       }
 
       const { error } = await supabase
@@ -302,6 +310,19 @@ export async function POST(request) {
       return Response.json({ ok: true, status: 'ROLE_REVEAL' }, { status: 200 })
     }
 
+    if (action === 'getGameState') {
+      const { data: roomRow, error: roomErr } = await supabase
+        .from('rooms')
+        .select('game_state, status')
+        .eq('room_code', roomCode)
+        .single()
+      if (roomErr || !roomRow) {
+        return Response.json({ error: 'Room not found' }, { status: 404 })
+      }
+      const game_state = roomRow.game_state && typeof roomRow.game_state === 'object' ? roomRow.game_state : {}
+      return Response.json({ game_state, status: roomRow.status ?? 'LOBBY' })
+    }
+
     if (action === 'getMyRole') {
       const clientId = body.clientId
       if (!clientId) {
@@ -333,6 +354,41 @@ export async function POST(request) {
         role_info: playerRow.role_info ?? {},
         inventory: playerRow.inventory ?? {}
       })
+    }
+
+    if (action === 'processTick') {
+      const lastEvent = body.lastEvent != null ? body.lastEvent : {}
+      try {
+        const result = await processGameTick(roomCode, lastEvent)
+        return Response.json(result, { status: result.ok ? 200 : 500 })
+      } catch (err) {
+        console.error('[processTick]', err?.message || err)
+        return Response.json({ ok: false, error: err?.message || 'processGameTick failed' }, { status: 500 })
+      }
+    }
+
+    if (action === 'submitEvent') {
+      const lastEvent = body.lastEvent != null ? body.lastEvent : {}
+      const { data: roomRow } = await supabase.from('rooms').select('id').eq('room_code', roomCode).single()
+      if (roomRow?.id) {
+        try {
+          await supabase.from('game_events').insert({
+            room_id: roomRow.id,
+            event_type: lastEvent?.type ?? lastEvent?.action ?? 'PLAYER_ACTION',
+            payload: lastEvent,
+            created_at: new Date().toISOString()
+          })
+        } catch (e) {
+          console.warn('[submitEvent] game_events insert failed (table may not exist):', e?.message)
+        }
+      }
+      try {
+        const result = await processGameTick(roomCode, lastEvent)
+        return Response.json(result, { status: result.ok ? 200 : 500 })
+      } catch (err) {
+        console.error('[submitEvent] processGameTick:', err?.message || err)
+        return Response.json({ ok: false, error: err?.message || 'processGameTick failed' }, { status: 500 })
+      }
     }
 
     return Response.json({ error: 'Unknown action' }, { status: 400 })

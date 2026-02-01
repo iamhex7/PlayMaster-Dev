@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Copy, Users, Play, Upload, RotateCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import AnnouncementView from '@/components/AnnouncementView'
+import ActionCard from '@/components/game/ActionCard'
 
 const ACCEPTED_FILE_TYPES = '.docx,.pdf,.png'
 const ACCEPTED_EXTENSIONS = ['docx', 'pdf', 'png']
@@ -41,6 +42,7 @@ export default function RoomPage() {
   const [gameConfig, setGameConfig] = useState(null)
   const [briefingAcks, setBriefingAcks] = useState([])
   const [playerCount, setPlayerCount] = useState(0)
+  const [pendingAction, setPendingAction] = useState(null)
   const roleAssignmentTriggeredRef = useRef(false)
   const [clientId] = useState(() => {
     if (typeof window === 'undefined') return ''
@@ -203,8 +205,36 @@ export default function RoomPage() {
     }
   }
 
-  const handleGameStart = () => {
-    if (isHost) setShowHostConsole(true)
+  const handleGameStart = async () => {
+    if (!isHost) return
+    const sampleGameId = typeof window !== 'undefined' ? localStorage.getItem('playmaster_sample_game_' + roomCode) : null
+    if (sampleGameId === 'neon-heist') {
+      setIsProcessing(true)
+      try {
+        const res = await fetch('/api/game', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'parseRules', roomCode, gameId: 'neon-heist' })
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          alert(data.error || '加载示例游戏失败')
+          return
+        }
+        localStorage.removeItem('playmaster_sample_game_' + roomCode)
+        setRoomStatus('BRIEFING')
+        setGameConfig(data.game_config ?? null)
+        setShowHostConsole(false)
+        router.push(`/room/${encodeURIComponent(roomCode)}/briefing`)
+      } catch (e) {
+        console.error('[Room] 加载示例游戏失败:', e?.message || e)
+        alert('加载示例游戏失败：' + (e?.message || '网络错误'))
+      } finally {
+        setIsProcessing(false)
+      }
+      return
+    }
+    setShowHostConsole(true)
   }
 
   const handleFileChange = (e) => {
@@ -264,6 +294,37 @@ export default function RoomPage() {
 
   const formattedCode = roomCode.split('').join(' ')
   const showAnnouncement = roomStatus === 'BRIEFING' && gameConfig
+
+  const SAMPLE_SELECT = {
+    type: 'SELECT',
+    title: '选择要使用的技能',
+    options: [
+      { id: 'hack', label: '破解安全锁' },
+      { id: 'guard', label: '保护队友' },
+      { id: 'trade', label: '物品交易' },
+      { id: 'scan', label: '扫描区域' }
+    ],
+    min: 1,
+    max: 2
+  }
+  const SAMPLE_INPUT = {
+    type: 'INPUT',
+    title: '下注金额',
+    value: 100,
+    min: 0,
+    max: 1000,
+    step: 50
+  }
+  const SAMPLE_CONFIRM = {
+    type: 'CONFIRM',
+    title: '发动技能？',
+    message: '是否发动「破解安全锁」？消耗 2 点行动力。'
+  }
+  const SAMPLE_VIEW = {
+    type: 'VIEW',
+    title: '系统通知',
+    content: '安全无人机已启动巡逻。请在本回合内到达接应点，否则将触发警报。\n\n— AI 主持人'
+  }
 
   return (
     <main
@@ -381,10 +442,20 @@ export default function RoomPage() {
 
             <button
               onClick={handleGameStart}
-              className="w-full btn-gold py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold"
+              disabled={isProcessing}
+              className="w-full btn-gold py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold disabled:opacity-70 disabled:cursor-wait"
             >
-              <Play className="w-4 h-4" />
-              GAME START
+              {isProcessing ? (
+                <>
+                  <span className="inline-block w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
+                  加载中...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4" />
+                  GAME START
+                </>
+              )}
             </button>
 
             <p className="mt-4 text-xs text-gray-500 text-center">Waiting for all players to be ready...</p>
@@ -486,6 +557,53 @@ export default function RoomPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {pendingAction && (
+          <ActionCard
+            key="action-card"
+            pending_action={pendingAction}
+            onComplete={(payload) => {
+              console.log('[ActionCard] onComplete', payload)
+              setPendingAction(null)
+            }}
+            onClose={() => setPendingAction(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* 临时：ActionCard 四种协议测试按钮 */}
+      <div className="fixed bottom-2 left-0 right-0 z-40 flex flex-wrap items-center justify-center gap-2 px-2 py-2 bg-black/50 backdrop-blur-sm border-t border-amber-400/20">
+        <span className="text-xs text-amber-400/80 mr-1">ActionCard 测试:</span>
+        <button
+          type="button"
+          onClick={() => setPendingAction(SAMPLE_SELECT)}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500/25 border border-amber-400/50 text-amber-100 hover:bg-amber-500/40 transition-colors"
+        >
+          SELECT
+        </button>
+        <button
+          type="button"
+          onClick={() => setPendingAction(SAMPLE_INPUT)}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500/25 border border-amber-400/50 text-amber-100 hover:bg-amber-500/40 transition-colors"
+        >
+          INPUT
+        </button>
+        <button
+          type="button"
+          onClick={() => setPendingAction(SAMPLE_CONFIRM)}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500/25 border border-amber-400/50 text-amber-100 hover:bg-amber-500/40 transition-colors"
+        >
+          CONFIRM
+        </button>
+        <button
+          type="button"
+          onClick={() => setPendingAction(SAMPLE_VIEW)}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500/25 border border-amber-400/50 text-amber-100 hover:bg-amber-500/40 transition-colors"
+        >
+          VIEW
+        </button>
+      </div>
     </main>
   )
 }

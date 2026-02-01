@@ -4,9 +4,18 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return code
+}
+
 const SAMPLES = [
   { id: 'DEEPSEA', name: 'Deep Sea Panic', tag: 'Survival', players: '1-5', description: 'Manage your dying oxygen and patch the leaks in a claustrophobic submarine, but watch your back—a saboteur hides among the crew.' },
-  { id: 'NEONHEIST', name: 'Neon Heist', tag: 'Roleplay', players: '1-5', description: "Coordinate a high-tech team to infiltrate a megacorp's vault and crack the code before the security drones lock down the sector." },
+  { id: 'NEONHEIST', gameId: 'neon-heist', name: 'Neon Heist', tag: 'Roleplay', players: '3-5', description: "Coordinate a high-tech team to infiltrate a megacorp's vault and crack the code before the security drones lock down the sector." },
   { id: 'WITCHFEAST', name: "Witch's Feast", tag: 'Party', players: '1-6', description: 'Identify the poisoner at a royal banquet through social deduction and secret ingredient trades before the third course seals your fate.' },
 ]
 
@@ -36,8 +45,36 @@ export default function SampleGamesFlip({ isOpen, onClose }) {
     }
   }, [isOpen, onClose])
 
-  const handleEnterGame = (sample) => {
+  const handleEnterGame = async (sample) => {
     triggerHaptic()
+    if (sample.gameId === 'neon-heist') {
+      const roomCode = generateRoomCode()
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('playmaster_host', roomCode)
+        localStorage.setItem('playmaster_sample_game_' + roomCode, 'neon-heist')
+      }
+      setIsExiting(true)
+      try {
+        const res = await fetch('/api/game', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'enterRoom', roomCode })
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          setIsExiting(false)
+          alert(data.error || '创建房间失败')
+          return
+        }
+        setTimeout(() => {
+          router.push(`/room/${encodeURIComponent(roomCode)}`)
+        }, 380)
+      } catch (e) {
+        setIsExiting(false)
+        alert('创建房间失败：' + (e?.message || '网络错误'))
+      }
+      return
+    }
     setIsExiting(true)
     const roomSlug = `SAMPLE-${sample.id}`
     setTimeout(() => {
