@@ -13,18 +13,23 @@ export default function RoomPage() {
   const [count, setCount] = useState(0)
   const [players, setPlayers] = useState([])
   const [copied, setCopied] = useState(false)
+  const [clientId] = useState(() => (typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36)))
+  const isHost = typeof window !== 'undefined' && localStorage.getItem('playmaster_host') === roomCode
 
   useEffect(() => {
     if (!supabase) return
 
     const channelName = `room_${roomCode}`
-    const channel = supabase.channel(channelName)
+    const channel = supabase.channel(channelName, {
+      config: { presence: { key: clientId } }
+    })
 
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState()
         const presenceList = Object.entries(state || {}).map(([key, value]) => ({
           id: key,
+          isSelf: key === clientId,
           ...value[0]
         }))
         setPlayers(presenceList)
@@ -34,7 +39,8 @@ export default function RoomPage() {
         if (status !== 'SUBSCRIBED') return
         await channel.track({ 
           online_at: new Date().toISOString(),
-          name: `Player ${Math.floor(Math.random() * 1000)}`
+          name: `Player ${Math.floor(Math.random() * 1000)}`,
+          isHost
         })
       })
 
@@ -43,9 +49,12 @@ export default function RoomPage() {
         supabase.removeChannel(channel)
       })
     }
-  }, [roomCode])
+  }, [roomCode, clientId, isHost])
 
   const handleLeave = () => {
+    if (typeof window !== 'undefined' && localStorage.getItem('playmaster_host') === roomCode) {
+      localStorage.removeItem('playmaster_host')
+    }
     router.push('/')
   }
 
@@ -137,7 +146,7 @@ export default function RoomPage() {
                   </span>
                 </div>
                 <span className="text-gray-200">
-                  {index === 0 ? 'You (Host)' : player.name || `Player ${index + 1}`}
+                  {player.isSelf ? (isHost ? 'You (Host)' : 'You') : (player.name || `Player ${index + 1}`)}
                 </span>
               </div>
               <span className={`px-3 py-1 rounded text-xs font-medium ${
