@@ -2,9 +2,28 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import { Copy, Users, UserPlus, Play } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Copy, Users, Play, Upload, CheckCircle, RotateCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+
+const ACCEPTED_FILE_TYPES = '.docx,.pdf,.png'
+const ACCEPTED_EXTENSIONS = ['docx', 'pdf', 'png']
+
+async function syncRulesToSupabase(roomCode, rulesText, rulesFileName) {
+  if (!supabase) return
+  try {
+    const { error } = await supabase.from('rooms').upsert(
+      {
+        room_code: roomCode,
+        rules_text: rulesText || null,
+        rules_file_name: rulesFileName || null,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: 'room_code' }
+    )
+    if (error) console.warn('Rules sync (rooms table):', error.message)
+  } catch (_) {}
+}
 
 export default function RoomPage() {
   const params = useParams()
@@ -13,6 +32,10 @@ export default function RoomPage() {
   const [count, setCount] = useState(0)
   const [players, setPlayers] = useState([])
   const [copied, setCopied] = useState(false)
+  const [inputCode, setInputCode] = useState('')
+  const [showHostConsole, setShowHostConsole] = useState(false)
+  const [rulesText, setRulesText] = useState('')
+  const [rulesFileName, setRulesFileName] = useState('')
   const [clientId] = useState(() => (typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36)))
   const isHost = typeof window !== 'undefined' && localStorage.getItem('playmaster_host') === roomCode
 
@@ -37,7 +60,7 @@ export default function RoomPage() {
       })
       .subscribe(async (status) => {
         if (status !== 'SUBSCRIBED') return
-        await channel.track({ 
+        await channel.track({
           online_at: new Date().toISOString(),
           name: `Player ${Math.floor(Math.random() * 1000)}`,
           isHost
@@ -64,20 +87,57 @@ export default function RoomPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Format room code with spaces
+  const handleJoinAnotherRoom = (e) => {
+    e.preventDefault()
+    const code = inputCode.trim().toUpperCase()
+    if (code.length === 6 && code !== roomCode) {
+      if (typeof window !== 'undefined' && localStorage.getItem('playmaster_host') === roomCode) {
+        localStorage.removeItem('playmaster_host')
+      }
+      router.push(`/room/${encodeURIComponent(code)}`)
+    }
+  }
+
+  const handleGameStart = () => {
+    if (isHost) setShowHostConsole(true)
+  }
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    if (ext && ACCEPTED_EXTENSIONS.includes(ext)) {
+      setRulesFileName(file.name)
+      syncRulesToSupabase(roomCode, rulesText, file.name)
+    }
+    e.target.value = ''
+  }
+
+  const handleRulesTextChange = (e) => {
+    const val = e.target.value
+    setRulesText(val)
+    if (val.trim()) {
+      syncRulesToSupabase(roomCode, val, rulesFileName)
+    }
+  }
+
+  const handleYourTurn = () => {
+    syncRulesToSupabase(roomCode, rulesText, rulesFileName)
+    // No additional interaction per requirement
+  }
+
   const formattedCode = roomCode.split('').join(' ')
 
   return (
-    <main 
+    <main
       className="min-h-screen flex flex-col items-center justify-center p-4 relative"
-      style={{ 
+      style={{
         backgroundImage: 'url(/casino-bg.jpg)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundColor: '#2d4a3e'
       }}
     >
-      {/* Leave Lobby Button */}
       <button
         onClick={handleLeave}
         className="absolute top-6 left-6 px-4 py-2 rounded-lg bg-black/30 text-gray-300 hover:bg-black/50 transition-colors text-sm border border-white/10"
@@ -85,101 +145,223 @@ export default function RoomPage() {
         Leave Lobby
       </button>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="lobby-panel w-full max-w-lg p-8"
-      >
-        <h2 className="text-2xl font-light text-casino-gold-light text-center mb-6 tracking-[0.3em] uppercase">
-          Game Lobby
-        </h2>
+      <AnimatePresence mode="wait">
+        {!showHostConsole ? (
+          <motion.div
+            key="lobby"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="lobby-panel w-full max-w-lg p-8"
+          >
+            <h2 className="text-2xl font-light text-casino-gold-light text-center mb-6 tracking-[0.3em] uppercase">
+              Game Lobby
+            </h2>
 
-        {/* Room Code Section */}
-        <div className="room-code-box p-6 mb-6">
-          <p className="text-xs text-gray-400 uppercase tracking-widest text-center mb-3">Room Code</p>
-          <div className="flex items-center justify-center gap-3">
-            <span className="text-3xl font-bold text-white tracking-[0.4em] font-mono">
-              {formattedCode}
-            </span>
-            <button 
-              onClick={copyToClipboard}
-              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-              title="Copy code"
-            >
-              <Copy className="w-5 h-5 text-gray-400" />
-            </button>
-          </div>
-          <p className="text-xs text-gray-500 text-center mt-2">
-            {copied ? 'Copied!' : 'Share this code with other players'}
-          </p>
-        </div>
-
-        {/* Players Section */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <Users className="w-4 h-4" />
-            <span>{count} Players</span>
-          </div>
-          <span className="text-sm text-gray-500">{count} / {count} Ready</span>
-        </div>
-
-        {/* Player List */}
-        <div className="space-y-2 mb-6 max-h-48 overflow-y-auto">
-          {players.map((player, index) => (
-            <motion.div
-              key={player.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="flex items-center justify-between p-3 rounded-lg bg-white/5"
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  index === 0 
-                    ? 'bg-gradient-to-br from-orange-400 to-orange-600' 
-                    : index % 2 === 0 
-                      ? 'bg-gradient-to-br from-orange-400 to-orange-600'
-                      : 'bg-gradient-to-br from-blue-400 to-blue-600'
-                }`}>
-                  <span className="text-white text-xs font-bold">
-                    {index === 0 ? 'H' : (index + 1)}
-                  </span>
-                </div>
-                <span className="text-gray-200">
-                  {player.isSelf ? (isHost ? 'You (Host)' : 'You') : (player.name || `Player ${index + 1}`)}
+            <div className="room-code-box p-6 mb-6">
+              <p className="text-xs text-gray-400 uppercase tracking-widest text-center mb-3">Room Code</p>
+              <div className="flex items-center justify-center gap-3">
+                <span className="text-3xl font-bold text-white tracking-[0.4em] font-mono">
+                  {formattedCode}
                 </span>
+                <button
+                  onClick={copyToClipboard}
+                  className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                  title="Copy code"
+                >
+                  <Copy className="w-5 h-5 text-gray-400" />
+                </button>
               </div>
-              <span className={`px-3 py-1 rounded text-xs font-medium ${
-                index % 2 === 0
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-              }`}>
-                {index % 2 === 0 ? 'READY' : 'JOINED'}
-              </span>
-            </motion.div>
-          ))}
-        </div>
+              <p className="text-xs text-gray-500 text-center mt-2">
+                {copied ? 'Copied!' : 'Share this code with other players'}
+              </p>
+            </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 mb-4">
-          <button
-            className="flex-1 btn-gold py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold"
-          >
-            <Play className="w-4 h-4" />
-            DEAL ROLES
-          </button>
-          <button
-            className="flex-1 py-3 rounded-lg bg-slate-700/50 text-gray-300 hover:bg-slate-600/50 transition-colors flex items-center justify-center gap-2 text-sm border border-slate-600/50"
-          >
-            <UserPlus className="w-4 h-4" />
-            INVITE PLAYERS
-          </button>
-        </div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <Users className="w-4 h-4" />
+                <span>{count} Players</span>
+              </div>
+              <span className="text-sm text-gray-500">{count} / {count} Ready</span>
+            </div>
 
-        <p className="text-xs text-gray-500 text-center">
-          Waiting for all players to be ready...
-        </p>
-      </motion.div>
+            <div className="space-y-2 mb-6 max-h-48 overflow-y-auto">
+              {players.map((player, index) => (
+                <motion.div
+                  key={player.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="flex items-center justify-between p-3 rounded-lg bg-white/5"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        index === 0
+                          ? 'bg-gradient-to-br from-orange-400 to-orange-600'
+                          : index % 2 === 0
+                            ? 'bg-gradient-to-br from-orange-400 to-orange-600'
+                            : 'bg-gradient-to-br from-blue-400 to-blue-600'
+                      }`}
+                    >
+                      <span className="text-white text-xs font-bold">
+                        {index === 0 ? 'H' : (index + 1)}
+                      </span>
+                    </div>
+                    <span className="text-gray-200">
+                      {player.isSelf ? (isHost ? 'You (Host)' : 'You') : (player.name || `Player ${index + 1}`)}
+                    </span>
+                  </div>
+                  <span
+                    className={`px-3 py-1 rounded text-xs font-medium ${
+                      index % 2 === 0
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                    }`}
+                  >
+                    {index % 2 === 0 ? 'READY' : 'JOINED'}
+                  </span>
+                </motion.div>
+              ))}
+            </div>
+
+            <form onSubmit={handleJoinAnotherRoom} className="mb-6">
+              <p className="text-xs text-gray-500 text-center mb-3">Or join another room</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={inputCode}
+                  onChange={(e) => setInputCode(e.target.value.toUpperCase().slice(0, 6))}
+                  placeholder="ENTER CODE"
+                  className="casino-input flex-1 text-sm py-2"
+                  maxLength={6}
+                />
+                <button
+                  type="submit"
+                  disabled={inputCode.length !== 6}
+                  className="btn-gold px-6 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  JOIN
+                </button>
+              </div>
+            </form>
+
+            <button
+              onClick={handleGameStart}
+              className="w-full btn-gold py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold"
+            >
+              <Play className="w-4 h-4" />
+              GAME START
+            </button>
+
+            <p className="mt-4 text-xs text-gray-500 text-center">
+              Waiting for all players to be ready...
+            </p>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="host-console"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="lobby-panel w-full max-w-lg p-8"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-semibold text-white tracking-wider">
+                  HOST CONSOLE
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">Dealing Roles</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 text-sm text-gray-400">
+                  <Users className="w-4 h-4" />
+                  <span>{count}/{count}</span>
+                </div>
+                <div className="live-badge flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40">
+                  <span className="live-dot" />
+                  <span className="text-emerald-400 text-xs font-medium">LIVE</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 mb-6 max-h-40 overflow-y-auto">
+              {players.map((player, index) => (
+                <motion.div
+                  key={player.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="flex items-center justify-between p-3 rounded-lg bg-white/5"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full bg-gray-500/30 flex items-center justify-center text-gray-400 text-xs font-medium">
+                      {index + 1}
+                    </div>
+                    <span className="text-gray-200 text-sm">
+                      {player.isSelf ? (isHost ? 'You (Host)' : 'You') : (player.name || `Player ${index + 1}`)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-emerald-500/20 text-emerald-400">
+                      <CheckCircle className="w-3 h-3" />
+                      DEALT
+                    </span>
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-amber-500/20 text-amber-400">
+                      <CheckCircle className="w-3 h-3" />
+                      CONFIRMED
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            <div className="mb-6 space-y-3">
+              <p className="text-xs text-gray-500">
+                请上传或输入游戏规则，让 AI 主持人开始学习
+              </p>
+              <div className="flex flex-col gap-3">
+                <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-white/5 border border-dashed border-gray-500/30 cursor-pointer hover:bg-white/10 transition-colors">
+                  <Upload className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-400">
+                    {rulesFileName || `上传 .docx / .pdf / .png`}
+                  </span>
+                  <input
+                    type="file"
+                    accept={ACCEPTED_FILE_TYPES}
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+                <textarea
+                  value={rulesText}
+                  onChange={handleRulesTextChange}
+                  placeholder="或直接输入游戏规则..."
+                  className="w-full min-h-[80px] px-4 py-3 rounded-lg bg-white/5 border border-gray-500/20 text-gray-200 text-sm placeholder-gray-500 resize-none focus:outline-none focus:border-amber-500/50"
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={handleYourTurn}
+              className="w-full btn-gold py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold"
+            >
+              <RotateCw className="w-4 h-4" />
+              YOUR TURN
+            </button>
+
+            <button
+              onClick={() => setShowHostConsole(false)}
+              className="mt-3 w-full py-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            >
+              ← Back to Lobby
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   )
 }

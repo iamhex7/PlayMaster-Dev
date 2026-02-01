@@ -145,3 +145,17 @@ body {
     0 0 40px rgba(212, 168, 83, 0.2),
     0 10px 30px rgba(0, 0, 0, 0.3);
 }
+
+/* LIVE badge breathing effect */
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+  animation: live-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.4); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(52, 211, 153, 0); }
+}

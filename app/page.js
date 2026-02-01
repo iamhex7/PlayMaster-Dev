@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 
@@ -37,7 +36,6 @@ function GameCard({ title, onClick, delay = 0 }) {
 
 export default function Home() {
   const router = useRouter()
-  const [inputCode, setInputCode] = useState('')
 
   const handleStartAIHost = () => {
     const code = generateRoomCode()
@@ -45,14 +43,6 @@ export default function Home() {
       localStorage.setItem('playmaster_host', code)
     }
     router.push(`/room/${encodeURIComponent(code)}`)
-  }
-
-  const handleJoinRoom = (e) => {
-    e.preventDefault()
-    const code = inputCode.trim().toUpperCase()
-    if (code.length === 6) {
-      router.push(`/room/${encodeURIComponent(code)}`)
-    }
   }
 
   return (
@@ -100,34 +90,6 @@ export default function Home() {
             <GameCard title="VIEW PAST GAMES" onClick={() => {}} />
           </motion.div>
         </div>
-
-        {/* Join Room - 成员入口 */}
-        <motion.form
-          onSubmit={handleJoinRoom}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-12 w-full max-w-sm"
-        >
-          <p className="text-xs text-gray-500 text-center mb-3">Join with room code</p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={inputCode}
-              onChange={(e) => setInputCode(e.target.value.toUpperCase().slice(0, 6))}
-              placeholder="ENTER CODE"
-              className="casino-input flex-1 text-sm py-2"
-              maxLength={6}
-            />
-            <button
-              type="submit"
-              disabled={inputCode.length !== 6}
-              className="btn-gold px-6 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              JOIN
-            </button>
-          </div>
-        </motion.form>
       </div>
     </main>
   )
