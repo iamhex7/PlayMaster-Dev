@@ -159,3 +159,13 @@ body {
   0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.4); }
   50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(52, 211, 153, 0); }
 }
+
+/* Sample Games – ENTER GAME button glow blink */
+.enter-game-btn {
+  animation: enter-btn-blink 2s ease-in-out infinite;
+}
+
+@keyframes enter-btn-blink {
+  0%, 100% { box-shadow: 0 0 8px rgba(251, 191, 36, 0.35); }
+  50% { box-shadow: 0 0 18px rgba(251, 191, 36, 0.6); }
+}

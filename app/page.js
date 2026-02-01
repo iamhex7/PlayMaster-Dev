@@ -1,7 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import HowToPlayModal from '@/components/HowToPlayModal'
+import SampleGamesFlip from '@/components/SampleGamesFlip'
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -36,6 +39,8 @@ function GameCard({ title, onClick, delay = 0 }) {
 
 export default function Home() {
   const router = useRouter()
+  const [howToPlayOpen, setHowToPlayOpen] = useState(false)
+  const [sampleGamesOpen, setSampleGamesOpen] = useState(false)
 
   const handleStartAIHost = async () => {
     const code = generateRoomCode()
@@ -86,7 +91,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <GameCard title="HOW TO PLAY" onClick={() => {}} />
+            <GameCard title="HOW TO PLAY" onClick={() => setHowToPlayOpen(true)} />
           </motion.div>
 
           <motion.div
@@ -102,10 +107,13 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <GameCard title="VIEW PAST GAMES" onClick={() => {}} />
+            <GameCard title="SAMPLE GAMES" onClick={() => setSampleGamesOpen(true)} />
           </motion.div>
         </div>
       </div>
+
+      <HowToPlayModal isOpen={howToPlayOpen} onClose={() => setHowToPlayOpen(false)} />
+      <SampleGamesFlip isOpen={sampleGamesOpen} onClose={() => setSampleGamesOpen(false)} />
     </main>
   )
 }
