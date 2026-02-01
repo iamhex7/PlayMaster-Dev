@@ -53,10 +53,9 @@ export default function Home() {
         alert(data.error || '房间创建失败')
         return
       }
-      if (data.id) console.log('房间创建成功：ID 为', data.id)
       router.push(`/room/${encodeURIComponent(code)}`)
     } catch (e) {
-      console.error(e)
+      console.error('[Home] 房间创建失败:', e?.message || e)
       alert('房间创建失败：' + (e?.message || '网络错误'))
     }
   }

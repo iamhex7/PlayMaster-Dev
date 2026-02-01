@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Copy, Users, Play, Upload, RotateCw } from 'lucide-react'
@@ -39,22 +39,36 @@ export default function RoomPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [roomStatus, setRoomStatus] = useState('LOBBY')
   const [gameConfig, setGameConfig] = useState(null)
-  const [clientId] = useState(() => (typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36)))
+  const [briefingAcks, setBriefingAcks] = useState([])
+  const [playerCount, setPlayerCount] = useState(0)
+  const roleAssignmentTriggeredRef = useRef(false)
+  const [clientId] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    const key = 'playmaster_client_id'
+    const stored = sessionStorage.getItem(key)
+    if (stored) return stored
+    const id = typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36)
+    sessionStorage.setItem(key, id)
+    return id
+  })
   const isHost = typeof window !== 'undefined' && localStorage.getItem('playmaster_host') === roomCode
 
   useEffect(() => {
-    if (!supabase || !roomCode) return
+    if (!supabase || !roomCode || !clientId) return
     fetch('/api/game', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'enterRoom', roomCode })
     })
       .then((res) => res.json().catch(() => ({})))
-      .then((data) => {
-        if (data?.id) console.log('房间创建成功：ID 为', data.id)
-      })
+      .then(() => {})
       .catch(() => {})
-  }, [roomCode])
+    fetch('/api/game', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'registerPlayer', roomCode, clientId })
+    }).catch(() => {})
+  }, [roomCode, clientId])
 
   useEffect(() => {
     if (!supabase) return
@@ -80,10 +94,36 @@ export default function RoomPage() {
       }, (payload) => {
         const newStatus = payload?.new?.status
         const newConfig = payload?.new?.game_config
+        const newAcks = Array.isArray(payload?.new?.briefing_acks) ? payload.new.briefing_acks : []
+        const newPlayerCount = typeof payload?.new?.player_count === 'number' ? payload.new.player_count : 0
+        setBriefingAcks(newAcks)
+        setPlayerCount(newPlayerCount)
+        if (newConfig) setGameConfig(newConfig)
+        setRoomStatus(newStatus || roomStatus)
+
         if (newStatus === 'BRIEFING') {
-          setRoomStatus('BRIEFING')
-          if (newConfig) setGameConfig(newConfig)
+          if (newAcks.length >= newPlayerCount && newPlayerCount > 0 && isHost && !roleAssignmentTriggeredRef.current) {
+            roleAssignmentTriggeredRef.current = true
+            fetch('/api/game', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'initializeGame', roomCode, clientId, isHost: true })
+            })
+              .then((res) => {
+                if (!res.ok) roleAssignmentTriggeredRef.current = false
+                return res.json().catch(() => ({}))
+              })
+              .catch(() => { roleAssignmentTriggeredRef.current = false })
+          }
           router.push(`/room/${encodeURIComponent(roomCode)}/briefing`)
+        }
+        if (newStatus === 'ASSIGNING_ROLES') {
+          setRoomStatus('ASSIGNING_ROLES')
+          router.push(`/room/${encodeURIComponent(roomCode)}/briefing`)
+        }
+        if (newStatus === 'ROLE_REVEAL') {
+          setRoomStatus('ROLE_REVEAL')
+          router.push(`/room/${encodeURIComponent(roomCode)}/role`)
         }
       })
       .subscribe(async (status) => {
@@ -104,18 +144,40 @@ export default function RoomPage() {
     if (!supabase || !roomCode) return
     supabase
       .from('rooms')
-      .select('status, game_config')
+      .select('status, game_config, briefing_acks, player_count')
       .eq('room_code', roomCode)
       .single()
       .then(({ data }) => {
+        if (data?.status === 'ROLE_REVEAL') {
+          setRoomStatus('ROLE_REVEAL')
+          router.push(`/room/${encodeURIComponent(roomCode)}/role`)
+          return
+        }
+        if (data?.status === 'ASSIGNING_ROLES') {
+          setRoomStatus('ASSIGNING_ROLES')
+          router.push(`/room/${encodeURIComponent(roomCode)}/briefing`)
+          return
+        }
         if (data?.status === 'BRIEFING' && data?.game_config) {
           setRoomStatus('BRIEFING')
           setGameConfig(data.game_config)
+          const acks = Array.isArray(data?.briefing_acks) ? data.briefing_acks : []
+          const pCount = typeof data?.player_count === 'number' ? data.player_count : 0
+          if (Array.isArray(data?.briefing_acks)) setBriefingAcks(data.briefing_acks)
+          if (typeof data?.player_count === 'number') setPlayerCount(data.player_count)
+          if (acks.length >= pCount && pCount > 0 && typeof isHost !== 'undefined' && isHost && !roleAssignmentTriggeredRef.current) {
+            roleAssignmentTriggeredRef.current = true
+            fetch('/api/game', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'initializeGame', roomCode, clientId, isHost: true })
+            }).then((res) => { if (!res.ok) roleAssignmentTriggeredRef.current = false }).catch(() => { roleAssignmentTriggeredRef.current = false })
+          }
           router.push(`/room/${encodeURIComponent(roomCode)}/briefing`)
         }
       })
       .catch(() => {})
-  }, [roomCode, router])
+  }, [roomCode, router, isHost, clientId])
 
   const handleLeave = () => {
     if (typeof window !== 'undefined' && localStorage.getItem('playmaster_host') === roomCode) {
@@ -188,7 +250,7 @@ export default function RoomPage() {
       setShowHostConsole(false)
       router.push(`/room/${encodeURIComponent(roomCode)}/briefing`)
     } catch (e) {
-      console.error('Parse rules error:', e)
+      console.error('[Room] 规则解析失败:', e?.message || e)
       alert('规则解析失败：' + (e?.message || '网络错误'))
     } finally {
       setIsProcessing(false)

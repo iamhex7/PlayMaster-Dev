@@ -22,24 +22,3 @@ export function BigActionButton({ children, onClick, disabled, className = '' })
   )
 }
 
-/** 房主专用：进入游戏按钮（所有人已确认后显示） */
-export function HostStartButton({ onClick, disabled, readyCount, totalCount }) {
-  return (
-    <div className="text-sm text-gray-400">
-      {totalCount > 0 && readyCount >= totalCount
-        ? (
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            onClick={onClick}
-            className="px-8 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
-          >
-            所有人已了解 · 进入游戏
-          </motion.button>
-          )
-        : (
-          <span>已确认 {readyCount} / {totalCount} 人</span>
-          )}
-    </div>
-  )
-}
