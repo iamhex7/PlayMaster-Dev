@@ -1,3 +1,147 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --casino-green: #2d4a3e;
+  --casino-green-dark: #1a2f28;
+  --casino-gold: #d4a853;
+  --casino-gold-light: #e8c87a;
+  --casino-cream: #f5f0e1;
+  --casino-dark: #1a1f2e;
+  --casino-panel: rgba(26, 31, 46, 0.95);
+}
+
+body {
+  background: linear-gradient(135deg, var(--casino-green-dark) 0%, var(--casino-green) 50%, var(--casino-green-dark) 100%);
+  min-height: 100vh;
+}
+
+/* Casino table texture overlay */
+.casino-bg {
+  position: relative;
+  background: 
+    radial-gradient(ellipse at center, rgba(255,255,255,0.03) 0%, transparent 70%),
+    linear-gradient(135deg, #1a2f28 0%, #2d4a3e 30%, #3d5a4e 50%, #2d4a3e 70%, #1a2f28 100%);
+  min-height: 100vh;
+}
+
+.casino-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+/* Card styling */
+.game-card {
+  background: linear-gradient(145deg, #f5f0e1 0%, #e8e0d0 50%, #ddd5c5 100%);
+  border: 3px solid var(--casino-gold);
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.3),
+    0 5px 15px rgba(0, 0, 0, 0.2),
+    inset 0 2px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  position: relative;
+}
+
+.game-card::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 2px solid rgba(212, 168, 83, 0.3);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+/* Glass panel */
+.glass-panel {
+  background: var(--casino-panel);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(212, 168, 83, 0.3);
+  border-radius: 16px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+}
+
+/* Lobby panel - dark navy style matching reference */
+.lobby-panel {
+  background: linear-gradient(180deg, rgba(26, 35, 55, 0.97) 0%, rgba(18, 25, 38, 0.98) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(100, 120, 150, 0.15);
+  border-radius: 20px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+}
+
+/* Room code box */
+.room-code-box {
+  background: rgba(35, 45, 60, 0.6);
+  border: 1px solid rgba(100, 120, 150, 0.1);
+  border-radius: 12px;
+}
+
+/* Gold text */
+.text-gold {
+  color: var(--casino-gold);
+}
+
+.text-gold-light {
+  color: var(--casino-gold-light);
+}
+
+/* Gold button */
+.btn-gold {
+  background: linear-gradient(135deg, #d4903a 0%, #c4802a 100%);
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  box-shadow: 0 4px 15px rgba(212, 140, 58, 0.4);
+  transition: all 0.2s ease;
+}
+
+.btn-gold:hover {
+  background: linear-gradient(135deg, #e4a04a 0%, #d4903a 100%);
+  box-shadow: 0 6px 20px rgba(212, 140, 58, 0.6);
+  transform: translateY(-2px);
+}
+
+/* Room code styling */
+.room-code {
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.5em;
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--casino-cream);
+}
+
+/* Input styling */
+.casino-input {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(150, 160, 180, 0.2);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  text-align: center;
+  letter-spacing: 0.2em;
+}
+
+.casino-input::placeholder {
+  color: rgba(150, 160, 180, 0.5);
+  letter-spacing: 0.1em;
+}
+
+.casino-input:focus {
+  outline: none;
+  border-color: rgba(212, 168, 83, 0.5);
+  box-shadow: 0 0 15px rgba(212, 168, 83, 0.2);
+}
+
+/* Glow effect */
+.glow-gold {
+  box-shadow: 
+    0 0 20px rgba(212, 168, 83, 0.4),
+    0 0 40px rgba(212, 168, 83, 0.2),
+    0 10px 30px rgba(0, 0, 0, 0.3);
+}
