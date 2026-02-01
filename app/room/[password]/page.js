@@ -13,21 +13,17 @@ export default function RoomPage() {
   useEffect(() => {
     if (!supabase) return
 
-    const channelName = `room:${password}`
+    const channelName = `room_${password}`
     const channel = supabase.channel(channelName)
 
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState()
-        const onlineCount = Object.keys(state || {}).length
-        setCount(onlineCount)
+        setCount(Object.keys(state || {}).length)
       })
       .subscribe(async (status) => {
         if (status !== 'SUBSCRIBED') return
-        await channel.track({
-          user_id: crypto.randomUUID(),
-          joined_at: new Date().toISOString(),
-        })
+        await channel.track({ online_at: new Date().toISOString() })
       })
 
     return () => {
@@ -44,10 +40,10 @@ export default function RoomPage() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md text-center space-y-8">
-        <p className="text-gray-600">当前房间密码：{password}</p>
+        <p className="text-gray-600">当前房间：{password}</p>
         <div>
           <p className="text-6xl font-bold text-blue-600">{count}</p>
-          <p className="text-xl text-gray-700 mt-2">当前在线人数</p>
+          <p className="text-xl text-gray-700 mt-2">在线人数</p>
         </div>
         <button
           onClick={handleBack}
