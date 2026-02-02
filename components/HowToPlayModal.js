@@ -66,8 +66,9 @@ export default function HowToPlayModal({ isOpen, onClose }) {
             className="fixed inset-4 z-50 flex items-center justify-center p-4 sm:inset-6 md:inset-8"
           >
             <div
-              className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border-2 border-amber-400 bg-emerald-950/80 shadow-2xl backdrop-blur-xl"
+              className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border-2 border-amber-400 shadow-2xl backdrop-blur-xl"
               style={{
+                backgroundColor: 'rgba(2, 44, 34, 0.55)',
                 boxShadow: '0 0 40px rgba(212, 168, 83, 0.25), 0 25px 50px rgba(0, 0, 0, 0.5)',
               }}
               onClick={(e) => e.stopPropagation()}
@@ -80,7 +81,10 @@ export default function HowToPlayModal({ isOpen, onClose }) {
                   How to Play
                 </h2>
 
-                <div className="space-y-4 text-sm leading-relaxed text-gray-200 sm:text-base">
+                <div 
+                  className="space-y-4 text-sm leading-relaxed text-gray-200 sm:text-base"
+                  style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
+                >
                   {CONTENT.intro.map((p, i) => (
                     <p key={`intro-${i}`} className="text-amber-50/95">
                       {p}
@@ -97,13 +101,16 @@ export default function HowToPlayModal({ isOpen, onClose }) {
                     ))}
                   </ul>
 
-                  <p className="mt-6 font-medium italic text-amber-200/95">
+                  <p className="mt-6 font-medium italic text-amber-200/95" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.35)' }}>
                     {CONTENT.tagline}
                   </p>
                 </div>
               </div>
 
-              <div className="shrink-0 border-t border-amber-400/30 bg-emerald-950/60 px-6 py-3 sm:px-8 sm:py-4 flex justify-center">
+              <div 
+                className="shrink-0 border-t border-amber-400/30 px-6 py-3 sm:px-8 sm:py-4 flex justify-center backdrop-blur-sm"
+                style={{ backgroundColor: 'rgba(2, 44, 34, 0.45)' }}
+              >
                 <button
                   type="button"
                   onClick={handleClose}

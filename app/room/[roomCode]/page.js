@@ -328,17 +328,18 @@ export default function RoomPage() {
 
   return (
     <main
-      className="min-h-screen flex flex-col items-center justify-center p-4 relative"
+      className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
       style={{
-        backgroundImage: 'linear-gradient(135deg, #1a2f24 0%, #2d4a3e 40%, #1e3a2e 100%)',
+        backgroundImage: 'url(/game-table-bg.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
         backgroundColor: '#2d4a3e'
       }}
     >
       <button
         onClick={handleLeave}
-        className="absolute top-6 left-6 px-4 py-2 rounded-lg bg-black/30 text-gray-300 hover:bg-black/50 transition-colors text-sm border border-white/10 z-40"
+        className="absolute top-6 left-6 px-4 py-2 rounded-lg border-2 border-amber-400/60 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25 transition-colors text-sm z-40"
       >
         Leave Lobby
       </button>
@@ -358,37 +359,44 @@ export default function RoomPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="lobby-panel w-full max-w-lg p-8"
+            className="w-full max-w-lg p-8 rounded-2xl border-2 border-amber-400 backdrop-blur-xl"
+            style={{
+              backgroundColor: 'rgba(2, 44, 34, 0.55)',
+              boxShadow: '0 0 40px rgba(212, 168, 83, 0.25), 0 25px 50px rgba(0, 0, 0, 0.5)',
+            }}
           >
-            <h2 className="text-2xl font-light text-casino-gold-light text-center mb-6 tracking-[0.3em] uppercase">
+            <h2 className="text-2xl font-light text-amber-400 text-center mb-6 tracking-[0.3em] uppercase">
               Game Lobby
             </h2>
 
-            <div className="room-code-box p-6 mb-6">
-              <p className="text-xs text-gray-400 uppercase tracking-widest text-center mb-3">Room Code</p>
+            <div
+              className="p-6 mb-6 rounded-xl border border-amber-400/60"
+              style={{ backgroundColor: 'rgba(4, 55, 42, 0.4)' }}
+            >
+              <p className="text-xs text-amber-200/80 uppercase tracking-widest text-center mb-3">Room Code</p>
               <div className="flex items-center justify-center gap-3">
-                <span className="text-3xl font-bold text-white tracking-[0.4em] font-mono">
+                <span className="text-3xl font-bold text-amber-100 tracking-[0.4em] font-mono">
                   {formattedCode}
                 </span>
                 <button
                   onClick={copyToClipboard}
-                  className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                  className="p-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 transition-colors"
                   title="Copy code"
                 >
-                  <Copy className="w-5 h-5 text-gray-400" />
+                  <Copy className="w-5 h-5 text-amber-200" />
                 </button>
               </div>
-              <p className="text-xs text-gray-500 text-center mt-2">
+              <p className="text-xs text-amber-200/60 text-center mt-2">
                 {copied ? 'Copied!' : 'Share this code with other players'}
               </p>
             </div>
 
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 text-sm text-gray-400">
+              <div className="flex items-center gap-2 text-sm text-amber-200/80">
                 <Users className="w-4 h-4" />
                 <span>{count} Players</span>
               </div>
-              <span className="text-sm text-gray-500">{count} / {count} Ready</span>
+              <span className="text-sm text-amber-200/60">{count} / {count} Ready</span>
             </div>
 
             <div className="space-y-2 mb-6 max-h-48 overflow-y-auto">
@@ -398,21 +406,22 @@ export default function RoomPage() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="flex items-center justify-between p-3 rounded-lg bg-white/5"
+                  className="flex items-center justify-between p-3 rounded-lg border border-amber-400/30"
+                  style={{ backgroundColor: 'rgba(4, 55, 42, 0.35)' }}
                 >
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        index === 0 ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 'bg-gradient-to-br from-blue-400 to-blue-600'
+                        index === 0 ? 'bg-gradient-to-br from-amber-400 to-amber-600' : 'bg-gradient-to-br from-amber-500/60 to-amber-600/60'
                       }`}
                     >
                       <span className="text-white text-xs font-bold">{index === 0 ? 'H' : index + 1}</span>
                     </div>
-                    <span className="text-gray-200">
+                    <span className="text-amber-50/95">
                       {player.isSelf ? (isHost ? 'You (Host)' : 'You') : (player.name || `Player ${index + 1}`)}
                     </span>
                   </div>
-                  <span className="px-3 py-1 rounded text-xs font-medium bg-gray-500/20 text-gray-400 border border-gray-500/30">
+                  <span className="px-3 py-1 rounded text-xs font-medium bg-amber-500/25 text-amber-200 border border-amber-400/40">
                     JOINED
                   </span>
                 </motion.div>
@@ -420,20 +429,20 @@ export default function RoomPage() {
             </div>
 
             <form onSubmit={handleJoinAnotherRoom} className="mb-6">
-              <p className="text-xs text-gray-500 text-center mb-3">Or join another room</p>
+              <p className="text-xs text-amber-200/60 text-center mb-3">Or join another room</p>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={inputCode}
                   onChange={(e) => setInputCode(e.target.value.toUpperCase().slice(0, 6))}
                   placeholder="ENTER CODE"
-                  className="casino-input flex-1 text-sm py-2"
+                  className="flex-1 text-sm py-2 px-4 rounded-lg bg-amber-500/10 border border-amber-400/40 text-amber-100 placeholder-amber-200/40 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50"
                   maxLength={6}
                 />
                 <button
                   type="submit"
                   disabled={inputCode.length !== 6}
-                  className="btn-gold px-6 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-lg border-2 border-amber-400 bg-amber-500/20 px-6 py-2 text-sm font-semibold text-amber-100 transition-all hover:bg-amber-500/30 hover:shadow-[0_0_20px_rgba(212,168,83,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-amber-500/20"
                 >
                   JOIN
                 </button>
@@ -443,11 +452,11 @@ export default function RoomPage() {
             <button
               onClick={handleGameStart}
               disabled={isProcessing}
-              className="w-full btn-gold py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold disabled:opacity-70 disabled:cursor-wait"
+              className="w-full rounded-lg border-2 border-amber-400 bg-amber-500/20 py-3 flex items-center justify-center gap-2 text-sm font-semibold text-amber-100 transition-all hover:bg-amber-500/30 hover:shadow-[0_0_20px_rgba(212,168,83,0.3)] disabled:opacity-70 disabled:cursor-wait"
             >
               {isProcessing ? (
                 <>
-                  <span className="inline-block w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
+                  <span className="inline-block w-4 h-4 border-2 border-amber-200 border-t-transparent rounded-full animate-spin" />
                   加载中...
                 </>
               ) : (
@@ -458,7 +467,7 @@ export default function RoomPage() {
               )}
             </button>
 
-            <p className="mt-4 text-xs text-gray-500 text-center">Waiting for all players to be ready...</p>
+            <p className="mt-4 text-xs text-amber-200/60 text-center">Waiting for all players to be ready...</p>
           </motion.div>
         ) : (
           <motion.div
@@ -467,15 +476,19 @@ export default function RoomPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4 }}
-            className="lobby-panel w-full max-w-lg p-8"
+            className="w-full max-w-lg p-8 rounded-2xl border-2 border-amber-400 backdrop-blur-xl"
+            style={{
+              backgroundColor: 'rgba(2, 44, 34, 0.55)',
+              boxShadow: '0 0 40px rgba(212, 168, 83, 0.25), 0 25px 50px rgba(0, 0, 0, 0.5)',
+            }}
           >
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h2 className="text-2xl font-semibold text-white tracking-wider">HOST CONSOLE</h2>
-                <p className="text-sm text-gray-500 mt-1">Dealing Roles</p>
+                <h2 className="text-2xl font-semibold text-amber-400 tracking-wider">HOST CONSOLE</h2>
+                <p className="text-sm text-amber-200/70 mt-1">Dealing Roles</p>
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 text-sm text-gray-400">
+                <div className="flex items-center gap-1.5 text-sm text-amber-200/80">
                   <Users className="w-4 h-4" />
                   <span>{count}/{count}</span>
                 </div>
@@ -493,17 +506,18 @@ export default function RoomPage() {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="flex items-center justify-between p-3 rounded-lg bg-white/5"
+                  className="flex items-center justify-between p-3 rounded-lg border border-amber-400/30"
+                  style={{ backgroundColor: 'rgba(4, 55, 42, 0.35)' }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-full bg-gray-500/30 flex items-center justify-center text-gray-400 text-xs font-medium">
+                    <div className="w-7 h-7 rounded-full bg-amber-500/30 flex items-center justify-center text-amber-200 text-xs font-medium">
                       {index + 1}
                     </div>
-                    <span className="text-gray-200 text-sm">
+                    <span className="text-amber-50/95 text-sm">
                       {player.isSelf ? (isHost ? 'You (Host)' : 'You') : (player.name || `Player ${index + 1}`)}
                     </span>
                   </div>
-                  <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-emerald-500/20 text-emerald-400">
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-amber-500/25 text-amber-200 border border-amber-400/40">
                     DEALT
                   </span>
                 </motion.div>
@@ -511,11 +525,13 @@ export default function RoomPage() {
             </div>
 
             <div className="mb-6 space-y-3">
-              <p className="text-xs text-gray-500">请上传或输入游戏规则，让 AI 主持人开始学习</p>
+              <p className="text-xs text-amber-200/70">请上传或输入游戏规则，让 AI 主持人开始学习</p>
               <div className="flex flex-col gap-3">
-                <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-white/5 border border-dashed border-gray-500/30 cursor-pointer hover:bg-white/10 transition-colors">
-                  <Upload className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-400">{rulesFileName || '上传 .docx / .pdf / .png'}</span>
+                <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed border-amber-400/40 cursor-pointer transition-colors hover:bg-amber-500/10"
+                  style={{ backgroundColor: 'rgba(4, 55, 42, 0.3)' }}
+                >
+                  <Upload className="w-4 h-4 text-amber-200" />
+                  <span className="text-sm text-amber-200/80">{rulesFileName || '上传 .docx / .pdf / .png'}</span>
                   <input
                     type="file"
                     accept={ACCEPTED_FILE_TYPES}
@@ -527,7 +543,7 @@ export default function RoomPage() {
                   value={rulesText}
                   onChange={handleRulesTextChange}
                   placeholder="或直接输入游戏规则..."
-                  className="w-full min-h-[80px] px-4 py-3 rounded-lg bg-white/5 border border-gray-500/20 text-gray-200 text-sm placeholder-gray-500 resize-none focus:outline-none focus:border-amber-500/50"
+                  className="w-full min-h-[80px] px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-400/40 text-amber-100 text-sm placeholder-amber-200/40 resize-none focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50"
                   rows={3}
                 />
               </div>
@@ -536,7 +552,7 @@ export default function RoomPage() {
             <button
               onClick={handleYourTurn}
               disabled={isProcessing}
-              className="w-full btn-gold py-3 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-wait"
+              className="w-full rounded-lg border-2 border-amber-400 bg-amber-500/20 py-3 flex items-center justify-center gap-2 text-sm font-semibold text-amber-100 transition-all hover:bg-amber-500/30 hover:shadow-[0_0_20px_rgba(212,168,83,0.3)] disabled:opacity-50 disabled:cursor-wait"
             >
               {isProcessing ? (
                 <>
@@ -550,7 +566,7 @@ export default function RoomPage() {
 
             <button
               onClick={() => setShowHostConsole(false)}
-              className="mt-3 w-full py-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              className="mt-3 w-full py-2 text-xs text-amber-200/70 hover:text-amber-100 transition-colors"
             >
               ← Back to Lobby
             </button>

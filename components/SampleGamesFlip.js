@@ -131,11 +131,12 @@ export default function SampleGamesFlip({ isOpen, onClose }) {
                 className="relative h-[420px] w-full max-w-3xl sm:h-[380px] md:h-[340px]"
                 style={{ transformStyle: 'preserve-3d' }}
               >
-                {/* Front face: "SAMPLE GAMES" card look */}
+                {/* Front face: "SAMPLE GAMES" card look - semi-transparent green + frosted glass */}
                 <div
-                  className="absolute inset-0 flex items-center justify-center rounded-2xl border-2 border-amber-400 bg-emerald-950/90 shadow-[0_0_40px_rgba(212,168,83,0.2)] backdrop-blur-xl"
+                  className="absolute inset-0 flex items-center justify-center rounded-2xl border-2 border-amber-400 shadow-[0_0_40px_rgba(212,168,83,0.2)] backdrop-blur-xl"
                   style={{
                     backfaceVisibility: 'hidden',
+                    backgroundColor: 'rgba(2, 44, 34, 0.55)',
                     boxShadow: '0 0 15px rgba(251,191,36,0.4), 0 25px 50px rgba(0,0,0,0.5)',
                   }}
                 >
@@ -144,12 +145,13 @@ export default function SampleGamesFlip({ isOpen, onClose }) {
                   </span>
                 </div>
 
-                {/* Back face: three game cards */}
+                {/* Back face: three game cards - semi-transparent green + frosted glass */}
                 <div
-                  className="absolute inset-0 flex flex-col gap-4 overflow-y-auto rounded-2xl border-2 border-amber-400 bg-emerald-950/90 p-4 backdrop-blur-xl md:flex-row md:items-stretch md:justify-center md:overflow-hidden md:gap-5 md:p-6"
+                  className="absolute inset-0 flex flex-col gap-4 overflow-y-auto rounded-2xl border-2 border-amber-400 p-4 backdrop-blur-xl md:flex-row md:items-stretch md:justify-center md:overflow-hidden md:gap-5 md:p-6"
                   style={{
                     backfaceVisibility: 'hidden',
                     transform: 'rotateY(180deg)',
+                    backgroundColor: 'rgba(2, 44, 34, 0.55)',
                     boxShadow: '0 0 15px rgba(251,191,36,0.4), 0 25px 50px rgba(0,0,0,0.5)',
                   }}
                 >
@@ -159,20 +161,21 @@ export default function SampleGamesFlip({ isOpen, onClose }) {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.2 + i * 0.08, duration: 0.35 }}
-                      className="flex min-w-0 flex-1 flex-col rounded-xl border-2 border-amber-400/80 bg-emerald-900/60 p-4 shadow-[0_0_15px_rgba(251,191,36,0.2)]"
+                      className="flex min-w-0 flex-1 flex-col rounded-xl border-2 border-amber-400/80 p-4 shadow-[0_0_15px_rgba(251,191,36,0.2)] backdrop-blur-xl"
+                      style={{ backgroundColor: 'rgba(4, 55, 42, 0.38)' }}
                     >
-                      <h3 className="mb-2 text-base font-bold text-amber-200 sm:text-lg">
+                      <h3 className="mb-2 text-base font-bold text-amber-200 sm:text-lg" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.35)' }}>
                         {sample.name}
                       </h3>
                       <div className="mb-2 flex flex-wrap gap-1.5">
-                        <span className="inline-block rounded bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-300">
+                        <span className="inline-block rounded bg-amber-500/25 px-2 py-0.5 text-xs font-medium text-amber-300 backdrop-blur-sm">
                           {sample.tag}
                         </span>
-                        <span className="inline-block rounded bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-300">
+                        <span className="inline-block rounded bg-amber-500/25 px-2 py-0.5 text-xs font-medium text-amber-300 backdrop-blur-sm">
                           {sample.players} players
                         </span>
                       </div>
-                      <p className="mb-3 flex-1 text-xs leading-relaxed text-amber-100/85 sm:text-sm">
+                      <p className="mb-3 flex-1 text-xs leading-relaxed text-amber-100/85 sm:text-sm" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.35)' }}>
                         {sample.description}
                       </p>
                       <div className="mt-auto pt-2">
