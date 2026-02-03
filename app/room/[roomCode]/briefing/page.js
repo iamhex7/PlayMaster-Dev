@@ -251,10 +251,11 @@ export default function BriefingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only trigger when allAcked flips true
   }, [allAcked, isHost, roomCode, clientId, briefingAcks])
 
-  // 轮询后备：全员确认或已进入分发中时定期拉取 status，确保每个人在 status 变为 ROLE_REVEAL 时都能自动跳转
+  // 轮询后备：在宣讲阶段始终定期拉取 status/briefing_acks，确保每个客户端都能同步最新状态
+  // 关键：A 可能收不到 B 确认的 Realtime 推送，若仅当 allAcked 才轮询，A 永远无法更新，会卡在 1/2
   useEffect(() => {
     if (!supabase || !roomCode) return
-    if (!allAcked && roomStatus !== 'ASSIGNING_ROLES') return
+    if (roomStatus !== 'BRIEFING' && roomStatus !== 'ASSIGNING_ROLES') return
     const poll = () => {
       supabase
         .from('rooms')
@@ -284,7 +285,7 @@ export default function BriefingPage() {
     const t = setInterval(poll, 1500)
     poll()
     return () => clearInterval(t)
-  }, [supabase, roomCode, allAcked, roomStatus, isHost, router])
+  }, [supabase, roomCode, roomStatus, isHost, router])
 
   const resourcesText = gameConfig?.resources ?? ''
   const phasesContent = gameConfig?.phases
