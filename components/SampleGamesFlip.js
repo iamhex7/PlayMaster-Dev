@@ -59,7 +59,7 @@ export default function SampleGamesFlip({ isOpen, onClose }) {
         const res = await fetch('/api/game', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'enterRoom', roomCode })
+          body: JSON.stringify({ action: 'enterRoom', roomCode, sampleGameId: sample.gameId })
         })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) {

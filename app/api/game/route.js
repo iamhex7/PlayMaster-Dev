@@ -56,23 +56,25 @@ export async function POST(request) {
 
     if (action === 'enterRoom') {
       const hostClientId = body.hostClientId || null
+      const sampleGameId = body.sampleGameId?.trim() || null
       let rowId = null
       
       // 先检查房间是否已存在
       const { data: existingRoom } = await supabase
         .from('rooms')
-        .select('id, host_client_id')
+        .select('id, host_client_id, sample_game_id')
         .eq('room_code', roomCode)
         .single()
       
       if (existingRoom?.id) {
         rowId = existingRoom.id
         // 如果房间已存在但没有 host，且当前请求提供了 hostClientId，则更新
-        if (!existingRoom.host_client_id && hostClientId) {
-          await supabase
-            .from('rooms')
-            .update({ host_client_id: hostClientId, updated_at: new Date().toISOString() })
-            .eq('id', rowId)
+        const updates = {}
+        if (!existingRoom.host_client_id && hostClientId) updates.host_client_id = hostClientId
+        if (sampleGameId && !existingRoom.sample_game_id) updates.sample_game_id = sampleGameId
+        if (Object.keys(updates).length > 0) {
+          updates.updated_at = new Date().toISOString()
+          await supabase.from('rooms').update(updates).eq('id', rowId)
         }
       } else {
         // 创建新房间
@@ -81,6 +83,9 @@ export async function POST(request) {
           if (!rpcError) {
             const { data: row } = await supabase.from('rooms').select('id').eq('room_code', roomCode).single()
             rowId = row?.id
+            if (rowId && sampleGameId) {
+              await supabase.from('rooms').update({ sample_game_id: sampleGameId, updated_at: new Date().toISOString() }).eq('id', rowId)
+            }
           }
         } catch (_) {}
         
@@ -89,7 +94,8 @@ export async function POST(request) {
             room_code: roomCode,
             room_password: roomCode,
             status: 'LOBBY',
-            host_client_id: hostClientId, // 存储 host 身份
+            host_client_id: hostClientId,
+            sample_game_id: sampleGameId,
             updated_at: new Date().toISOString()
           }
           const { data: insertData, error: insertError } = await supabase
@@ -145,11 +151,11 @@ export async function POST(request) {
 
     if (action === 'parseRules') {
       const gameId = body.gameId?.trim()
-      const useSampleGame = gameId === 'neon-heist' && SAMPLE_GAMES['neon-heist']
+      const useSampleGame = gameId && SAMPLE_GAMES[gameId]
 
       let result
       if (useSampleGame) {
-        result = SAMPLE_GAMES['neon-heist']
+        result = SAMPLE_GAMES[gameId]
       } else {
         let rulesText = body.rulesText || ''
         let pdfBuffer = null

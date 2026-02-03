@@ -42,6 +42,7 @@ export default function RoomPage() {
   const [gameConfig, setGameConfig] = useState(null)
   const [briefingAcks, setBriefingAcks] = useState([])
   const [playerCount, setPlayerCount] = useState(0)
+  const [sampleGameId, setSampleGameId] = useState(null)
   const [pendingAction, setPendingAction] = useState(null)
   const roleAssignmentTriggeredRef = useRef(false)
   const [clientId] = useState(() => {
@@ -103,8 +104,10 @@ export default function RoomPage() {
         const newConfig = payload?.new?.game_config
         const newAcks = Array.isArray(payload?.new?.briefing_acks) ? payload.new.briefing_acks : []
         const newPlayerCount = typeof payload?.new?.player_count === 'number' ? payload.new.player_count : 0
+        const newSampleGameId = payload?.new?.sample_game_id ?? null
         setBriefingAcks(newAcks)
         setPlayerCount(newPlayerCount)
+        if (newSampleGameId) setSampleGameId(newSampleGameId)
         if (newConfig) setGameConfig(newConfig)
         setRoomStatus(newStatus || roomStatus)
 
@@ -151,10 +154,11 @@ export default function RoomPage() {
     if (!supabase || !roomCode) return
     supabase
       .from('rooms')
-      .select('status, game_config, briefing_acks, player_count')
+      .select('status, game_config, briefing_acks, player_count, sample_game_id')
       .eq('room_code', roomCode)
       .single()
       .then(({ data }) => {
+        if (data?.sample_game_id) setSampleGameId(data.sample_game_id)
         if (data?.status === 'ROLE_REVEAL') {
           setRoomStatus('ROLE_REVEAL')
           router.push(`/room/${encodeURIComponent(roomCode)}/role`)
@@ -211,7 +215,7 @@ export default function RoomPage() {
   }
 
   const handleGameStart = async () => {
-    if (!isHost) return
+    // 任何在线玩家均可点击开始游戏
     
     // 如果已经有游戏配置，直接跳转到briefing页面
     if (gameConfig) {
@@ -220,21 +224,22 @@ export default function RoomPage() {
       return
     }
     
-    const sampleGameId = typeof window !== 'undefined' ? localStorage.getItem('playmaster_sample_game_' + roomCode) : null
-    if (sampleGameId === 'neon-heist' || sampleGameId === 'among-us' || sampleGameId === 'texas-holdem') {
+    const sampleGameIdFromStorage = typeof window !== 'undefined' ? localStorage.getItem('playmaster_sample_game_' + roomCode) : null
+    const effectiveSampleGameId = sampleGameIdFromStorage || sampleGameId
+    if (effectiveSampleGameId === 'neon-heist' || effectiveSampleGameId === 'among-us' || effectiveSampleGameId === 'texas-holdem') {
       setIsProcessing(true)
       try {
         const res = await fetch('/api/game', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'parseRules', roomCode, gameId: sampleGameId })
+          body: JSON.stringify({ action: 'parseRules', roomCode, gameId: effectiveSampleGameId })
         })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) {
           alert(data.error || '加载示例游戏失败')
           return
         }
-        localStorage.removeItem('playmaster_sample_game_' + roomCode)
+        if (sampleGameIdFromStorage) localStorage.removeItem('playmaster_sample_game_' + roomCode)
         setRoomStatus('BRIEFING')
         setGameConfig(data.game_config ?? null)
         setShowHostConsole(false)
@@ -381,7 +386,11 @@ export default function RoomPage() {
             }}
           >
             <h2 className="text-2xl font-light text-amber-400 text-center mb-6 tracking-[0.3em] uppercase">
-              Game Lobby
+              {sampleGameId ? (
+                <>Sample Game: {sampleGameId === 'texas-holdem' ? '德州扑克' : sampleGameId === 'among-us' ? '谁是卧底' : sampleGameId === 'neon-heist' ? 'Neon Heist' : sampleGameId}</>
+              ) : (
+                'Game Lobby'
+              )}
             </h2>
 
             <div
@@ -466,7 +475,7 @@ export default function RoomPage() {
 
             <button
               onClick={handleGameStart}
-              disabled={isProcessing || !isHost}
+              disabled={isProcessing}
               className="w-full rounded-lg border-2 border-amber-400 bg-amber-500/20 py-3 flex items-center justify-center gap-2 text-sm font-semibold text-amber-100 transition-all hover:bg-amber-500/30 hover:shadow-[0_0_20px_rgba(212,168,83,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing ? (

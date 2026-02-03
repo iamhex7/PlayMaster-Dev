@@ -10,6 +10,7 @@ create table if not exists public.rooms (
   game_config jsonb,
   game_state jsonb,
   briefing_acks jsonb default '[]',
+  sample_game_id text,
   updated_at timestamptz default now()
 );
 
@@ -22,6 +23,7 @@ ALTER TABLE public.rooms ADD COLUMN IF NOT EXISTS game_config jsonb;
 ALTER TABLE public.rooms ADD COLUMN IF NOT EXISTS game_state jsonb;
 ALTER TABLE public.rooms ADD COLUMN IF NOT EXISTS briefing_acks jsonb DEFAULT '[]';
 ALTER TABLE public.rooms ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+ALTER TABLE public.rooms ADD COLUMN IF NOT EXISTS sample_game_id text;
 
 -- Enable RLS (optional, for security)
 alter table public.rooms enable row level security;
