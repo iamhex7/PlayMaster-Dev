@@ -198,7 +198,12 @@ export default function BriefingPage() {
     } catch (_) {}
   }
 
-  const allAcked = playersCount > 0 && briefingAcks.length >= playersCount
+  // 修复 allAcked 判断：确保至少有一个确认，且确认数 >= 玩家数
+  // 如果玩家数还没更新，使用确认数作为参考
+  const allAcked = briefingAcks.length > 0 && (
+    (playersCount > 0 && briefingAcks.length >= playersCount) ||
+    (playersCount === 0 && briefingAcks.length >= 1) // 至少有一个确认
+  )
   const [initializing, setInitializing] = useState(false)
   const [initError, setInitError] = useState(null)
   const autoTriggeredRef = useRef(false)
@@ -229,14 +234,18 @@ export default function BriefingPage() {
     }
   }
 
-  // 全员就绪时由房主端自动调用 initializeGame（不依赖按钮点击）
+  // 全员就绪时自动调用 initializeGame（host 或第一个确认的玩家）
   useEffect(() => {
-    if (!isHost || !roomCode || !clientId) return
+    if (!roomCode || !clientId) return
     if (allAcked && !initializing && !autoTriggeredRef.current) {
-      runInitializeGame()
+      // 允许 host 或第一个确认的玩家触发初始化
+      const isFirstAcker = briefingAcks.length > 0 && briefingAcks[0]?.clientId === clientId
+      if (isHost || isFirstAcker) {
+        runInitializeGame()
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only trigger when allAcked flips true
-  }, [allAcked, isHost, roomCode, clientId])
+  }, [allAcked, isHost, roomCode, clientId, briefingAcks])
 
   // 轮询后备：全员确认或已进入分发中时定期拉取 status，确保每个人在 status 变为 ROLE_REVEAL 时都能自动跳转
   useEffect(() => {
@@ -256,10 +265,14 @@ export default function BriefingPage() {
           if (data?.status === 'ASSIGNING_ROLES') setRoomStatus('ASSIGNING_ROLES')
           if (Array.isArray(data?.briefing_acks)) setBriefingAcks(data.briefing_acks)
           if (typeof data?.player_count === 'number') setPlayersCount((prev) => Math.max(prev, data.player_count))
-          if (isHost && !autoTriggeredRef.current) {
+          if (!autoTriggeredRef.current) {
             const acks = Array.isArray(data?.briefing_acks) ? data.briefing_acks : []
             const pCount = typeof data?.player_count === 'number' ? data.player_count : 0
-            if (acks.length >= pCount && pCount > 0) runInitializeGame()
+            // 允许 host 或第一个确认的玩家触发初始化
+            const isFirstAcker = acks.length > 0 && acks[0]?.clientId === clientId
+            if ((isHost || isFirstAcker) && acks.length >= pCount && pCount > 0) {
+              runInitializeGame()
+            }
           }
         })
         .catch(() => {})
@@ -269,18 +282,12 @@ export default function BriefingPage() {
     return () => clearInterval(t)
   }, [supabase, roomCode, allAcked, roomStatus, isHost, router])
 
-  const toRenderable = (v) => {
-    if (v == null) return ''
-    if (typeof v === 'string') return v
-    if (typeof v === 'object') return JSON.stringify(v, null, 2)
-    return String(v)
-  }
-  const resourcesText = toRenderable(gameConfig?.resources)
+  const resourcesText = gameConfig?.resources ?? ''
   const phasesContent = gameConfig?.phases
   const phasesText = Array.isArray(phasesContent)
     ? phasesContent.map((p, i) => (typeof p === 'string' ? p : `阶段 ${i + 1}: ${JSON.stringify(p)}`)).join('\n\n')
-    : toRenderable(phasesContent)
-  const winConditionText = toRenderable(gameConfig?.win_condition)
+    : (typeof phasesContent === 'string' ? phasesContent : '')
+  const winConditionText = gameConfig?.win_condition ?? ''
 
   return (
     <main
@@ -324,7 +331,7 @@ export default function BriefingPage() {
               className="text-3xl md:text-4xl font-bold text-amber-400 tracking-wider mb-6 text-center"
               style={{ fontFamily: 'serif' }}
             >
-              {toRenderable(gameConfig.game_name) || '游戏规则'}
+              {gameConfig.game_name || '游戏规则'}
             </h1>
 
             <section className="mb-8">

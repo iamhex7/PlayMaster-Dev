@@ -165,14 +165,17 @@ export default function Home() {
 
   const handleStartAIHost = async () => {
     const code = generateRoomCode()
+    // 生成 clientId 用于标识 host
+    const hostClientId = typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36)
     if (typeof window !== 'undefined') {
       localStorage.setItem('playmaster_host', code)
+      sessionStorage.setItem('playmaster_client_id', hostClientId)
     }
     try {
       const res = await fetch('/api/game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'enterRoom', roomCode: code })
+        body: JSON.stringify({ action: 'enterRoom', roomCode: code, hostClientId })
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
