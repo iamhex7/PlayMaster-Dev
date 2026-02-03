@@ -280,7 +280,6 @@ export async function POST(request) {
         return Response.json({ error: 'Only host or first player can initialize game' }, { status: 403 })
       }
 
-      const acks = Array.isArray(roomRow.briefing_acks) ? roomRow.briefing_acks : []
       const playerClientIds = acks.map((a) => a?.clientId ?? a?.playerId).filter(Boolean)
       
       // 获取实际的玩家数量（从 players 表）
