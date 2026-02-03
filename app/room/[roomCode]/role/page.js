@@ -92,6 +92,13 @@ export default function RoleRevealPage() {
     }
   }, [showInGame, roomCode, refetchMyRole])
 
+  // 游戏进行中定期拉取最新 inventory，确保「剩余物资」实时更新
+  useEffect(() => {
+    if (!showInGame || !roomCode || !clientId) return
+    const interval = setInterval(refetchMyRole, 3000)
+    return () => clearInterval(interval)
+  }, [showInGame, roomCode, clientId, refetchMyRole])
+
   const gameStateForView = mapGameStateForView(realGameState)
   const mergedInventory = (() => {
     const fromState = realGameState?.players?.[clientId]?.inventory ?? realGameState?.player_inventory

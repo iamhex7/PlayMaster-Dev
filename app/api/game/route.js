@@ -161,12 +161,23 @@ export async function POST(request) {
         }
       }
 
+      // 同步 player_count，确保多人时 briefing 页能正确判断「全员确认」
+      let playerCount = 0
+      if (existing?.id) {
+        const { count } = await supabase
+          .from('players')
+          .select('id', { count: 'exact', head: true })
+          .eq('room_id', existing.id)
+        if (typeof count === 'number') playerCount = count
+      }
+
       const { error } = await supabase
         .from('rooms')
         .update({
           status: 'BRIEFING',
           game_config: result,
           briefing_acks: [],
+          player_count: playerCount,
           updated_at: new Date().toISOString()
         })
         .eq('room_code', roomCode)

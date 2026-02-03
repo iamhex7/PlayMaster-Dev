@@ -37,10 +37,13 @@ const PROP_ICONS = {
   action_points: '⚡',
   cans: '🥫',
   wood: '🪵',
+  HP: '❤️',
+  hp: '❤️',
   罐头: '🥫',
   木材: '🪵',
   信用点: '💰',
-  行动力: '⚡'
+  行动力: '⚡',
+  篝火等级: '🔥'
 }
 
 function getPropIcon(key) {
@@ -70,7 +73,7 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
   const inGameTime = gameState.in_game_time ?? '深夜 02:00'
   const activePlayer = gameState.active_player ?? ''
   const gameLogs = Array.isArray(gameState.game_logs) ? gameState.game_logs : []
-  const recentLogs = gameLogs.slice(-3).reverse()
+  const allLogs = [...gameLogs].reverse()
   const isGameOver = gameState.phase === 'game_over' || currentPhase === '游戏结束'
   const winner = gameState.winner
   const statusMessage = gameState.status_message
@@ -99,7 +102,7 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
         )}
         <header className="flex items-center justify-between px-4 md:px-6 py-2.5 border-b border-amber-400/15 bg-black/30 shrink-0">
           <div className="text-xs md:text-sm font-medium text-amber-400/80 tracking-widest">
-            {submitBusy ? '处理中…' : `第 ${dayRound} 天 / 轮`}
+            {submitBusy ? 'AI Host Processing, please wait...' : `第 ${dayRound} 天 / 轮`}
           </div>
           <h1 className="text-lg md:text-xl font-bold text-amber-300/95 tracking-wider">
             {gameName}
@@ -109,7 +112,7 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
           </div>
         </header>
 
-        <div className="grid grid-cols-[1fr] md:grid-cols-[200px_1fr_200px] lg:grid-cols-[220px_1fr_220px] flex-1 min-h-0">
+        <div className="grid grid-cols-[1fr] md:grid-cols-[280px_1fr_280px] lg:grid-cols-[320px_1fr_320px] flex-1 min-h-0">
           {/* 左侧：我的角色 + 剩余物资 */}
           <aside className="flex flex-col gap-3 p-3 md:p-4 border-r border-amber-400/10 bg-black/20 order-2 md:order-1">
             <section className={`p-3 rounded-xl ${PANEL}`}>
@@ -117,23 +120,15 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
                 {isWordGame ? '我的词语' : cards.length > 0 ? '我的手牌' : '我的角色'}
               </p>
               {isWordGame ? (
-                <p className="text-lg font-bold text-amber-300 truncate">
-                  {myWord}
-                </p>
+                <p className="text-sm font-bold text-amber-300 truncate">{myWord}</p>
               ) : cards.length === 0 ? (
                 <p className="text-gray-500 text-xs">—</p>
               ) : (
-                <div className="space-y-2">
-                  {cards.map((card, i) => (
-                    <div key={i} className="rounded-lg border border-amber-400/15 bg-amber-950/20 p-2">
-                      <p className="text-xs font-semibold text-amber-200/95 truncate">{card.roleName ?? '未知'}</p>
-                      {card.skill_summary && (
-                        <p className="text-[10px] text-amber-200/60 mt-0.5 line-clamp-2">{card.skill_summary}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <p className="text-xs text-amber-200/90">
+                  {cards.map((c) => c.roleName ?? '未知').join(' · ')}
+                </p>
               )}
+              <p className="text-[10px] text-amber-500/50 mt-1">卡牌详见中央区域</p>
             </section>
             <section className={`p-3 rounded-xl ${PANEL}`}>
               <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">剩余物资</p>
@@ -157,19 +152,45 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
             </section>
           </aside>
 
-          <div className="flex flex-col items-center justify-center p-6 md:p-8 min-h-[280px] order-1 md:order-2 border-b md:border-b-0 md:border-r border-amber-400/10 bg-gradient-to-b from-amber-950/10 to-transparent overflow-y-auto">
-            {(communityCards.length > 0 || pot != null) && (
-              <div className="w-full max-w-md mb-4 space-y-2">
+          <div className="flex flex-col min-h-0 order-1 md:order-2 border-b md:border-b-0 md:border-r border-amber-400/10 flex-1">
+            {/* 上半部分：所有卡牌（抽到的牌 + 我的手牌） */}
+            <section className="flex-shrink-0 p-4 md:p-6 border-b border-amber-400/10 bg-gradient-to-b from-amber-950/15 to-transparent overflow-y-auto">
+              <div className="w-full max-w-2xl mx-auto space-y-4">
                 {communityCards.length > 0 && (
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {communityCards.map((c, i) => (
-                      <div
-                        key={i}
-                        className="px-3 py-2 rounded-lg border border-amber-400/30 bg-amber-950/30 text-amber-200 font-medium"
-                      >
-                        {c.roleName ?? c.skill_summary ?? '?'}
-                      </div>
-                    ))}
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">抽到的牌 / 公共牌</p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {communityCards.map((c, i) => (
+                        <div
+                          key={i}
+                          className="px-3 py-2 rounded-lg border border-amber-400/30 bg-amber-950/30 text-amber-200 font-medium"
+                        >
+                          {c.roleName ?? c.skill_summary ?? '?'}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {cards.length > 0 && !isWordGame && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">我的手牌</p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {cards.map((card, i) => (
+                        <div
+                          key={i}
+                          className="px-3 py-2 rounded-lg border border-amber-400/30 bg-amber-950/30 text-amber-200 font-medium"
+                        >
+                          {card.roleName ?? '?'}
+                          {card.skill_summary && <span className="text-amber-200/70 text-xs ml-1">({card.skill_summary})</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {isWordGame && myWord && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">我的词语</p>
+                    <p className="text-lg font-bold text-amber-300 text-center">{myWord}</p>
                   </div>
                 )}
                 {(pot != null || currentBet != null) && (
@@ -178,8 +199,13 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
                     {currentBet != null && <span>当前下注: {currentBet}</span>}
                   </div>
                 )}
+                {communityCards.length === 0 && cards.length === 0 && !isWordGame && !pot && currentBet == null && (
+                  <p className="text-gray-500 text-xs text-center py-4">暂无卡牌</p>
+                )}
               </div>
-            )}
+            </section>
+            {/* 下半部分：交互区（选择、用户行为） */}
+            <section className="flex-1 flex flex-col items-center justify-center p-6 md:p-8 min-h-[200px] overflow-y-auto">
             {children}
             {!children && isGameOver && (
               <motion.div
@@ -220,6 +246,7 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
                 <p className="text-xs text-gray-500">其他玩家操作后将更新</p>
               </motion.div>
             )}
+            </section>
           </div>
 
           {/* 右侧：阶段 + 行动提醒 + 系统公告 */}
@@ -244,11 +271,11 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
               <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 px-3 py-2 border-b border-amber-400/10">
                 系统公告
               </p>
-              <div className="flex-1 overflow-y-auto p-2 space-y-1.5 bg-black/20">
-                {recentLogs.length === 0 ? (
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1.5 bg-black/20 min-h-[120px]">
+                {allLogs.length === 0 ? (
                   <p className="text-gray-500 text-xs">暂无</p>
                 ) : (
-                  recentLogs.map((line, i) => (
+                  allLogs.map((line, i) => (
                     <p key={i} className="text-[11px] text-amber-100/80 leading-snug">
                       {typeof line === 'string' ? line : JSON.stringify(line)}
                     </p>

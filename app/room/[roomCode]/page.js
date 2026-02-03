@@ -213,7 +213,7 @@ export default function RoomPage() {
   const handleGameStart = async () => {
     if (!isHost) return
     const sampleGameId = typeof window !== 'undefined' ? localStorage.getItem('playmaster_sample_game_' + roomCode) : null
-    if (sampleGameId === 'neon-heist' || sampleGameId === 'among-us') {
+    if (sampleGameId === 'neon-heist' || sampleGameId === 'among-us' || sampleGameId === 'texas-holdem') {
       setIsProcessing(true)
       try {
         const res = await fetch('/api/game', {

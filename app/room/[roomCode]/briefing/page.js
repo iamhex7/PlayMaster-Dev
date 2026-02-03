@@ -91,7 +91,7 @@ export default function BriefingPage() {
           setLoading(false)
           if (data?.id) setRoomId(data.id)
           if (data?.status) setRoomStatus(data.status)
-          if (typeof data?.player_count === 'number') setPlayersCount(data.player_count)
+          if (typeof data?.player_count === 'number') setPlayersCount((prev) => Math.max(prev, data.player_count))
           if (data?.game_config && (typeof data.game_config === 'object' || typeof data.game_config === 'string')) {
             const cfg = typeof data.game_config === 'string' ? JSON.parse(data.game_config) : data.game_config
             setGameConfig(cfg)
@@ -125,7 +125,7 @@ export default function BriefingPage() {
         }
         if (Array.isArray(newAcks)) setBriefingAcks(newAcks)
         if (newStatus) setRoomStatus(newStatus)
-        if (newPlayerCount !== null) setPlayersCount(newPlayerCount)
+        if (newPlayerCount !== null) setPlayersCount((prev) => Math.max(prev, newPlayerCount))
         if (newStatus === 'ROLE_REVEAL') router.replace(`/room/${encodeURIComponent(roomCode)}/role`)
         if (newStatus === 'PLAYING') router.replace(`/room/${encodeURIComponent(roomCode)}`)
       })
@@ -153,7 +153,7 @@ export default function BriefingPage() {
         .select('id', { count: 'exact', head: true })
         .eq('room_id', roomId)
         .then(({ count }) => {
-          if (typeof count === 'number') setPlayersCount(count)
+          if (typeof count === 'number') setPlayersCount((prev) => Math.max(prev, count))
         })
     }
 
@@ -255,7 +255,7 @@ export default function BriefingPage() {
           }
           if (data?.status === 'ASSIGNING_ROLES') setRoomStatus('ASSIGNING_ROLES')
           if (Array.isArray(data?.briefing_acks)) setBriefingAcks(data.briefing_acks)
-          if (typeof data?.player_count === 'number') setPlayersCount(data.player_count)
+          if (typeof data?.player_count === 'number') setPlayersCount((prev) => Math.max(prev, data.player_count))
           if (isHost && !autoTriggeredRef.current) {
             const acks = Array.isArray(data?.briefing_acks) ? data.briefing_acks : []
             const pCount = typeof data?.player_count === 'number' ? data.player_count : 0
