@@ -7,10 +7,14 @@ import { motion } from 'framer-motion'
  * Fullscreen announcement view: dark overlay, centered typewriter text from announcement_script.
  * Looks like a separate "new page".
  */
+const toStr = (v) => (v != null && typeof v === 'string' ? v : typeof v === 'object' ? JSON.stringify(v) : String(v ?? ''))
+
 export default function AnnouncementView({ announcementScript = '', gameName = '', onContinue }) {
   const [displayedText, setDisplayedText] = useState('')
   const [done, setDone] = useState(false)
-  const text = announcementScript || `欢迎来到《${gameName}》。`
+  const script = toStr(announcementScript)
+  const name = toStr(gameName)
+  const text = script || `欢迎来到《${name}》。`
 
   useEffect(() => {
     setDisplayedText('')
@@ -38,7 +42,7 @@ export default function AnnouncementView({ announcementScript = '', gameName = '
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-black/30" />
 
       <div className="relative z-10 max-w-3xl w-full text-center">
-        {gameName && (
+        {name && (
           <motion.h1
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -46,7 +50,7 @@ export default function AnnouncementView({ announcementScript = '', gameName = '
             className="text-3xl md:text-4xl font-bold text-amber-400/90 tracking-wider mb-8"
             style={{ fontFamily: 'serif' }}
           >
-            {gameName}
+            {name}
           </motion.h1>
         )}
 

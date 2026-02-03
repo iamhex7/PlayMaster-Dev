@@ -2,12 +2,7 @@
 
 import { motion } from 'framer-motion'
 
-/**
- * 动态交互组件集中存放。
- * 用于规则宣讲页、游戏内操作等需要大按钮/卡片交互的场景。
- */
-
-/** 大号主操作按钮（如「我已了解」） */
+/** 大号主操作按钮（如「我已了解」），用于宣讲页等 */
 export function BigActionButton({ children, onClick, disabled, className = '' }) {
   return (
     <motion.button
@@ -21,4 +16,3 @@ export function BigActionButton({ children, onClick, disabled, className = '' })
     </motion.button>
   )
 }
-

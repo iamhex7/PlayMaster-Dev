@@ -7,14 +7,26 @@ import { Check, Minus, Plus } from 'lucide-react'
 const CARD_STYLE =
   'rounded-2xl border-2 border-amber-400/60 bg-black/40 backdrop-blur-xl shadow-[0_0_40px_rgba(212,168,83,0.15),0_25px_50px_rgba(0,0,0,0.5)] p-6'
 
+/** 标准化选项：支持 {id,label}、字符串、或 {value,label} */
+function normalizeOptions(opts) {
+  if (!Array.isArray(opts)) return []
+  return opts.map((o) => {
+    if (typeof o === 'string') return { id: o, label: o }
+    const id = o?.id ?? o?.value ?? o?.label
+    const label = o?.label ?? o?.id ?? o?.value ?? String(id ?? '')
+    return { id, label }
+  }).filter((o) => o.id != null && o.id !== '')
+}
+
 /**
  * SELECT: 列表选择器，支持单选/多选，底部「确认提交」
  */
-function SelectBlock({ action, onSubmit }) {
+function SelectBlock({ action, onSubmit, disabled = false }) {
   const min = action.min ?? 1
   const max = action.max ?? 1
   const isMulti = max > 1
   const [selected, setSelected] = useState([])
+  const options = normalizeOptions(action.options || action.action_options || [])
 
   const toggle = (id) => {
     if (isMulti) {
@@ -36,7 +48,7 @@ function SelectBlock({ action, onSubmit }) {
         <h3 className="text-lg font-semibold text-amber-200/95 tracking-wide">{action.title}</h3>
       )}
       <div className="flex flex-wrap gap-3">
-        {(action.options || []).map((opt) => {
+        {options.map((opt) => {
           const isActive = selected.includes(opt.id)
           return (
             <motion.button
@@ -61,7 +73,7 @@ function SelectBlock({ action, onSubmit }) {
       </div>
       <motion.button
         type="button"
-        disabled={!canSubmit}
+        disabled={!canSubmit || disabled}
         whileHover={canSubmit ? { scale: 1.02 } : {}}
         whileTap={canSubmit ? { scale: 0.98 } : {}}
         onClick={() => onSubmit({ selectedIds: selected })}
@@ -80,7 +92,7 @@ function SelectBlock({ action, onSubmit }) {
 /**
  * INPUT: 数值调节器，大 + / - 按钮，校验 min/max
  */
-function InputBlock({ action, onSubmit }) {
+function InputBlock({ action, onSubmit, disabled = false }) {
   const { value: initial = 0, min = 0, max = 100, step = 1, title } = action
   const [value, setValue] = useState(Math.max(min, Math.min(max, initial)))
 
@@ -134,10 +146,11 @@ function InputBlock({ action, onSubmit }) {
       </p>
       <motion.button
         type="button"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={() => onSubmit({ value })}
-        className="w-full py-3 rounded-xl font-semibold border-2 border-amber-400 bg-amber-500/30 text-amber-100 hover:bg-amber-500/40 transition-colors"
+        disabled={disabled}
+        whileHover={!disabled ? { scale: 1.02 } : {}}
+        whileTap={!disabled ? { scale: 0.98 } : {}}
+        onClick={() => !disabled && onSubmit({ value })}
+        className={`w-full py-3 rounded-xl font-semibold border-2 border-amber-400 transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : 'bg-amber-500/30 text-amber-100 hover:bg-amber-500/40'}`}
       >
         确认提交
       </motion.button>
@@ -148,7 +161,7 @@ function InputBlock({ action, onSubmit }) {
 /**
  * CONFIRM: 布尔开关，绿色「是/发动」、红色「否/跳过」
  */
-function ConfirmBlock({ action, onSubmit }) {
+function ConfirmBlock({ action, onSubmit, disabled = false }) {
   const title = action.title ?? action.label
   const message = action.message ?? (action.label !== title ? action.label : null)
   return (
@@ -162,19 +175,21 @@ function ConfirmBlock({ action, onSubmit }) {
       <div className="grid grid-cols-2 gap-4">
         <motion.button
           type="button"
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => onSubmit({ confirmed: true })}
-          className="py-4 rounded-xl border-2 border-emerald-400/70 bg-emerald-500/30 text-emerald-100 font-semibold hover:bg-emerald-500/50 shadow-lg shadow-emerald-500/20 transition-colors"
+          disabled={disabled}
+          whileHover={!disabled ? { scale: 1.03 } : {}}
+          whileTap={!disabled ? { scale: 0.97 } : {}}
+          onClick={() => !disabled && onSubmit({ confirmed: true })}
+          className={`py-4 rounded-xl border-2 border-emerald-400/70 font-semibold transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : 'bg-emerald-500/30 text-emerald-100 hover:bg-emerald-500/50 shadow-lg shadow-emerald-500/20'}`}
         >
           是 / 发动
         </motion.button>
         <motion.button
           type="button"
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => onSubmit({ confirmed: false })}
-          className="py-4 rounded-xl border-2 border-red-400/60 bg-red-500/25 text-red-100 font-semibold hover:bg-red-500/40 shadow-lg shadow-red-500/20 transition-colors"
+          disabled={disabled}
+          whileHover={!disabled ? { scale: 1.03 } : {}}
+          whileTap={!disabled ? { scale: 0.97 } : {}}
+          onClick={() => !disabled && onSubmit({ confirmed: false })}
+          className={`py-4 rounded-xl border-2 border-red-400/60 font-semibold transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : 'bg-red-500/25 text-red-100 hover:bg-red-500/40 shadow-lg shadow-red-500/20'}`}
         >
           否 / 跳过
         </motion.button>
@@ -186,7 +201,7 @@ function ConfirmBlock({ action, onSubmit }) {
 /**
  * VIEW: 信息反馈，格式化文本 +「我已阅读/确认」关闭
  */
-function ViewBlock({ action, onConfirm }) {
+function ViewBlock({ action, onConfirm, disabled = false }) {
   return (
     <div className="space-y-4">
       {action.title && (
@@ -197,10 +212,11 @@ function ViewBlock({ action, onConfirm }) {
       </div>
       <motion.button
         type="button"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={onConfirm}
-        className="w-full py-3 rounded-xl font-semibold border-2 border-amber-400 bg-amber-500/30 text-amber-100 hover:bg-amber-500/40 transition-colors"
+        disabled={disabled}
+        whileHover={!disabled ? { scale: 1.02 } : {}}
+        whileTap={!disabled ? { scale: 0.98 } : {}}
+        onClick={() => !disabled && onConfirm()}
+        className={`w-full py-3 rounded-xl font-semibold border-2 border-amber-400 transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : 'bg-amber-500/30 text-amber-100 hover:bg-amber-500/40'}`}
       >
         我已阅读 / 确认
       </motion.button>
@@ -214,7 +230,7 @@ function ViewBlock({ action, onConfirm }) {
  * @param {function} onComplete - 提交时回调，payload 依 type 不同
  * @param {function} onClose - VIEW 确认或外部关闭时调用
  */
-export default function ActionCard({ pending_action, onComplete, onClose }) {
+export default function ActionCard({ pending_action, onComplete, onClose, disabled = false }) {
   if (!pending_action || !pending_action.type) return null
 
   const handleSubmit = (payload) => {
@@ -229,23 +245,23 @@ export default function ActionCard({ pending_action, onComplete, onClose }) {
 
   return (
     <motion.div
-      initial={{ y: '100%', opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      exit={{ y: '100%', opacity: 0 }}
-      transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-      className={`fixed inset-x-4 bottom-6 z-50 max-w-lg mx-auto ${CARD_STYLE}`}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className={`w-full max-w-lg mx-auto ${CARD_STYLE}`}
     >
         {pending_action.type === 'SELECT' && (
-          <SelectBlock action={pending_action} onSubmit={handleSubmit} />
+          <SelectBlock action={pending_action} onSubmit={handleSubmit} disabled={disabled} />
         )}
         {pending_action.type === 'INPUT' && (
-          <InputBlock action={pending_action} onSubmit={handleSubmit} />
+          <InputBlock action={pending_action} onSubmit={handleSubmit} disabled={disabled} />
         )}
         {pending_action.type === 'CONFIRM' && (
-          <ConfirmBlock action={pending_action} onSubmit={handleSubmit} />
+          <ConfirmBlock action={pending_action} onSubmit={handleSubmit} disabled={disabled} />
         )}
         {pending_action.type === 'VIEW' && (
-          <ViewBlock action={pending_action} onConfirm={handleViewConfirm} />
+          <ViewBlock action={pending_action} onConfirm={handleViewConfirm} disabled={disabled} />
         )}
     </motion.div>
   )

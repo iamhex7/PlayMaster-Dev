@@ -14,7 +14,7 @@ function generateRoomCode() {
 }
 
 const SAMPLES = [
-  { id: 'DEEPSEA', name: 'Deep Sea Panic', tag: 'Survival', players: '1-5', description: 'Manage your dying oxygen and patch the leaks in a claustrophobic submarine, but watch your back—a saboteur hides among the crew.' },
+  { id: 'AMONGUS', gameId: 'among-us', name: '谁是卧底', tag: 'Social Deduction', players: '4-12', description: '通过描述发现同伴、找出卧底；卧底则隐藏身份、伪装平民。' },
   { id: 'NEONHEIST', gameId: 'neon-heist', name: 'Neon Heist', tag: 'Roleplay', players: '3-5', description: "Coordinate a high-tech team to infiltrate a megacorp's vault and crack the code before the security drones lock down the sector." },
   { id: 'WITCHFEAST', name: "Witch's Feast", tag: 'Party', players: '1-6', description: 'Identify the poisoner at a royal banquet through social deduction and secret ingredient trades before the third course seals your fate.' },
 ]
@@ -47,11 +47,12 @@ export default function SampleGamesFlip({ isOpen, onClose }) {
 
   const handleEnterGame = async (sample) => {
     triggerHaptic()
-    if (sample.gameId === 'neon-heist') {
+    // 谁是卧底、Neon Heist 等内置游戏：与 AI Host 相同，创建房间并进入 Lobby 等待好友
+    if (sample.gameId === 'neon-heist' || sample.gameId === 'among-us') {
       const roomCode = generateRoomCode()
       if (typeof window !== 'undefined') {
         localStorage.setItem('playmaster_host', roomCode)
-        localStorage.setItem('playmaster_sample_game_' + roomCode, 'neon-heist')
+        localStorage.setItem('playmaster_sample_game_' + roomCode, sample.gameId)
       }
       setIsExiting(true)
       try {

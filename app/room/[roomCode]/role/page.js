@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import InGameView from '@/components/game/InGameView'
 import ActionCard from '@/components/game/ActionCard'
-import DebugPanel from '@/components/game/DebugPanel'
+import { mapGameStateForView } from '@/lib/game-state-mapper'
+import { useGameBootstrap } from '@/lib/hooks/useGameBootstrap'
 import { supabase } from '@/lib/supabase'
 
 export default function RoleRevealPage() {
@@ -22,6 +23,8 @@ export default function RoleRevealPage() {
   const [realGameState, setRealGameState] = useState(null)
   const [gameStateLoading, setGameStateLoading] = useState(false)
   const [bootstrapped, setBootstrapped] = useState(false)
+  const [submitBusy, setSubmitBusy] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -44,34 +47,24 @@ export default function RoleRevealPage() {
     return data.game_state
   }, [roomCode])
 
-  useEffect(() => {
-    if (!showInGame || !roomCode) return
-    setGameStateLoading(true)
-    fetchGameState().then((gs) => {
-      setGameStateLoading(false)
-      if (!gs) return
-      const initialized = gs.initialized === true
-      const hasPending = gs.current_pending_action && gs.current_pending_action.target_uid
-      if (initialized && !hasPending && !bootstrapped) {
-        setBootstrapped(true)
-        fetch('/api/game', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'submitEvent', roomCode, lastEvent: { type: 'GAME_START' } })
-        })
-          .then((r) => r.json())
-          .then(() => {
-            let pollCount = 0
-            const poll = () => {
-              pollCount++
-              fetchGameState()
-              if (pollCount < 5) setTimeout(poll, 2000)
-            }
-            setTimeout(poll, 1500)
-          })
-      }
+  useGameBootstrap(roomCode, showInGame, fetchGameState, setGameStateLoading, bootstrapped, setBootstrapped)
+
+  const refetchMyRole = useCallback(() => {
+    if (!roomCode || !clientId) return
+    fetch('/api/game', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getMyRole', roomCode, clientId })
     })
-  }, [showInGame, roomCode, fetchGameState, bootstrapped])
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.error) {
+          setRoleInfo(data.role_info ?? {})
+          setInventory(data.inventory ?? {})
+        }
+      })
+      .catch(() => {})
+  }, [roomCode, clientId])
 
   useEffect(() => {
     if (!showInGame || !roomCode || !supabase) return
@@ -87,25 +80,24 @@ export default function RoleRevealPage() {
         },
         (payload) => {
           const gs = payload?.new?.game_state
-          if (gs && typeof gs === 'object') setRealGameState(gs)
+          if (gs && typeof gs === 'object') {
+            setRealGameState(gs)
+            refetchMyRole()
+          }
         }
       )
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [showInGame, roomCode])
+  }, [showInGame, roomCode, refetchMyRole])
 
-  const gameStateForView = realGameState
-    ? {
-        game_name: realGameState.game_name ?? '霓虹劫案',
-        current_phase: realGameState.phase ?? realGameState.current_phase ?? '—',
-        current_day_round: realGameState.current_day_round ?? 1,
-        in_game_time: realGameState.in_game_time ?? '深夜 02:00',
-        active_player: realGameState.active_player ?? '',
-        game_logs: Array.isArray(realGameState.logs) ? realGameState.logs : (Array.isArray(realGameState.game_logs) ? realGameState.game_logs : [])
-      }
-    : null
+  const gameStateForView = mapGameStateForView(realGameState)
+  const mergedInventory = (() => {
+    const fromState = realGameState?.players?.[clientId]?.inventory ?? realGameState?.player_inventory
+    if (fromState && typeof fromState === 'object' && Object.keys(fromState).length > 0) return fromState
+    return inventory ?? {}
+  })()
 
   useEffect(() => {
     if (!roomCode) return
@@ -147,18 +139,51 @@ export default function RoleRevealPage() {
 
   const cards = Array.isArray(roleInfo?.cards) ? roleInfo.cards : []
   const hasRevealed = flipped
+  const myWord = roleInfo?.word
+  const myRoleType = roleInfo?.role
+  const isAmongUs = myRoleType != null
 
   const pendingAction = realGameState?.current_pending_action
-  const pendingForMe =
-    pendingAction &&
-    String(pendingAction.target_uid) === String(clientId)
-      ? { type: pendingAction.type, ...(pendingAction.params || {}) }
-      : null
+  const pendingActions = realGameState?.current_pending_actions
+  const myPending = pendingActions?.find((a) => String(a.target_uid) === String(clientId))
+  const rawPending = myPending || (pendingAction && String(pendingAction.target_uid) === String(clientId) ? pendingAction : null)
+  const pendingForMe = rawPending
+    ? (rawPending.type?.toLowerCase() === 'select'
+        ? {
+            type: 'SELECT',
+            title: rawPending.params?.title || rawPending.params?.label || '请选择',
+            options: Array.isArray(rawPending.params?.options) && rawPending.params.options.length > 0
+              ? rawPending.params.options
+              : (Array.isArray(rawPending.params?.action_options) ? rawPending.params.action_options : []).map((o) =>
+                  typeof o === 'string' ? { id: o, label: o } : { id: o?.id ?? o?.label, label: o?.label ?? o?.id }
+                ),
+            min: rawPending.params?.min ?? 1,
+            max: rawPending.params?.max ?? 1
+          }
+        : rawPending.type?.toLowerCase() === 'input'
+          ? {
+              type: 'INPUT',
+              title: rawPending.params?.title || rawPending.params?.label || '请输入',
+              value: rawPending.params?.value ?? 0,
+              min: rawPending.params?.min ?? 0,
+              max: rawPending.params?.max ?? 10000,
+              step: rawPending.params?.step ?? 1,
+              ...(rawPending.params || {})
+            }
+          : {
+              type: (rawPending.type || '').toUpperCase() || 'CONFIRM',
+              ...(rawPending.params || {}),
+              title: rawPending.params?.title || rawPending.params?.label,
+              action_code: rawPending.params?.action_code
+            })
+    : null
 
   const handleActionComplete = (payload) => {
+    setSubmitError(null)
+    setSubmitBusy(true)
     const isConfirm = pendingForMe?.type === 'CONFIRM'
     const eventType = isConfirm && payload?.confirmed === true ? 'CONFIRM_YES' : isConfirm && payload?.confirmed === false ? 'CONFIRM_NO' : 'PLAYER_ACTION'
-    const eventPayload = { ...payload, action_code: pendingForMe?.action_code }
+    const eventPayload = { ...payload, action_code: pendingForMe?.action_code, uid: clientId }
     fetch('/api/game', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -168,10 +193,25 @@ export default function RoleRevealPage() {
         lastEvent: { type: eventType, uid: clientId, payload: eventPayload }
       })
     })
-      .then((r) => r.json())
-      .then(() => {
-        setTimeout(() => fetchGameState(), 800)
+      .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          setSubmitError(data?.error || '提交失败，请重试')
+          return
+        }
+        fetchGameState()
+        refetchMyRole()
+        setTimeout(() => {
+          fetchGameState()
+          refetchMyRole()
+        }, 1500)
+        setTimeout(() => {
+          fetchGameState()
+          refetchMyRole()
+        }, 3500)
       })
+      .catch((err) => setSubmitError(err?.message || '网络错误，请重试'))
+      .finally(() => setSubmitBusy(false))
   }
 
   if (showInGame && clientId) {
@@ -180,9 +220,11 @@ export default function RoleRevealPage() {
         <InGameView
           gameState={gameStateForView ?? {}}
           myRole={roleInfo ?? {}}
-          myInventory={inventory ?? {}}
+          myInventory={mergedInventory}
           clientId={clientId}
           onBack={() => setShowInGame(false)}
+          submitBusy={submitBusy}
+          submitError={submitError}
         >
           {pendingForMe && (
             <AnimatePresence>
@@ -191,11 +233,11 @@ export default function RoleRevealPage() {
                 pending_action={pendingForMe}
                 onComplete={handleActionComplete}
                 onClose={() => fetchGameState()}
+                disabled={submitBusy}
               />
             </AnimatePresence>
           )}
         </InGameView>
-        <DebugPanel roomCode={roomCode} clientId={clientId} />
       </>
     )
   }
@@ -254,7 +296,7 @@ export default function RoleRevealPage() {
         {!loading && !error && clientId && roleInfo !== null && (
           <>
             <h1 className="text-2xl font-semibold text-amber-400/95 tracking-wider mb-8 text-center">
-              你的身份
+              {isAmongUs ? '你的词语' : '你的身份'}
             </h1>
             <motion.div
               className="w-full max-w-sm cursor-pointer perspective-1000"
@@ -275,7 +317,7 @@ export default function RoleRevealPage() {
                       Secret
                     </div>
                     <p className="text-amber-500/90 text-lg font-medium mb-2">点击翻牌</p>
-                    <p className="text-gray-500 text-sm">揭开你的身份</p>
+                    <p className="text-gray-500 text-sm">{isAmongUs ? '揭开你的词语' : '揭开你的身份'}</p>
                   </motion.div>
                 ) : (
                   <motion.div
@@ -285,7 +327,7 @@ export default function RoleRevealPage() {
                     transition={{ duration: 0.35 }}
                     className="rounded-2xl p-8 min-h-[280px] border-2 border-amber-500/50 bg-gradient-to-b from-amber-950/80 to-amber-900/60 shadow-xl"
                   >
-                    {cards.length === 0 ? (
+                    {cards.length === 0 && !isAmongUs ? (
                       <div className="space-y-4">
                         <p className="text-amber-200/90 text-center">暂无手牌数据</p>
                         {Object.keys(inventory || {}).length > 0 && (
@@ -301,19 +343,26 @@ export default function RoleRevealPage() {
                       </div>
                     ) : (
                       <div className="space-y-6">
-                        {cards.map((card, i) => (
+                        {isAmongUs && (
+                          <div className="text-center py-8 px-6 rounded-xl bg-amber-950/40">
+                            <p className="text-4xl font-bold text-amber-200 tracking-wide">
+                              {myWord || '（无词，全靠猜）'}
+                            </p>
+                          </div>
+                        )}
+                        {!isAmongUs && cards.map((card, i) => (
                           <div key={i} className="border-b border-amber-500/20 pb-4 last:border-0 last:pb-0">
                             <h2 className="text-xl font-bold text-amber-300 tracking-wide">
                               {card.roleName ?? '未知角色'}
                             </h2>
-                            {card.skill_summary && (
+                            {card.skill_summary && !isAmongUs && (
                               <p className="text-amber-200/80 text-sm mt-2 leading-relaxed">
                                 {card.skill_summary}
                               </p>
                             )}
                           </div>
                         ))}
-                        {Object.keys(inventory || {}).length > 0 && (
+                        {!isAmongUs && Object.keys(inventory || {}).length > 0 && (
                           <div className="pt-2">
                             <p className="text-amber-500/80 text-xs uppercase tracking-wider mb-1">初始资源</p>
                             <p className="text-amber-200/80 text-sm">

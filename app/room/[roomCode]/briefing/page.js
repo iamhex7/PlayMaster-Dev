@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
-import { BigActionButton } from '@/components/ActionCard'
+import { BigActionButton } from '@/components/ui/BigActionButton'
 
 /** 规则卡片：Card 风格，用于 Resources / Phases / Win Condition */
 function RuleCard({ title, children, delay = 0 }) {
@@ -269,12 +269,18 @@ export default function BriefingPage() {
     return () => clearInterval(t)
   }, [supabase, roomCode, allAcked, roomStatus, isHost, router])
 
-  const resourcesText = gameConfig?.resources ?? ''
+  const toRenderable = (v) => {
+    if (v == null) return ''
+    if (typeof v === 'string') return v
+    if (typeof v === 'object') return JSON.stringify(v, null, 2)
+    return String(v)
+  }
+  const resourcesText = toRenderable(gameConfig?.resources)
   const phasesContent = gameConfig?.phases
   const phasesText = Array.isArray(phasesContent)
     ? phasesContent.map((p, i) => (typeof p === 'string' ? p : `阶段 ${i + 1}: ${JSON.stringify(p)}`)).join('\n\n')
-    : (typeof phasesContent === 'string' ? phasesContent : '')
-  const winConditionText = gameConfig?.win_condition ?? ''
+    : toRenderable(phasesContent)
+  const winConditionText = toRenderable(gameConfig?.win_condition)
 
   return (
     <main
@@ -318,7 +324,7 @@ export default function BriefingPage() {
               className="text-3xl md:text-4xl font-bold text-amber-400 tracking-wider mb-6 text-center"
               style={{ fontFamily: 'serif' }}
             >
-              {gameConfig.game_name || '游戏规则'}
+              {toRenderable(gameConfig.game_name) || '游戏规则'}
             </h1>
 
             <section className="mb-8">

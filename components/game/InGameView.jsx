@@ -1,6 +1,30 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+
+function CaliforniaTime() {
+  const [time, setTime] = useState('')
+  useEffect(() => {
+    const fmt = () => {
+      try {
+        return new Date().toLocaleTimeString('zh-CN', {
+          timeZone: 'America/Los_Angeles',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        })
+      } catch {
+        return new Date().toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      }
+    }
+    setTime(fmt())
+    const id = setInterval(() => setTime(fmt()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return <span>加州 {time} PT</span>
+}
 
 const GOLD = '#D4AF37'
 const PANEL =
@@ -23,6 +47,8 @@ function getPropIcon(key) {
   return PROP_ICONS[key] ?? '📦'
 }
 
+const toStr = (v) => (v != null && typeof v === 'string' ? v : typeof v === 'object' ? JSON.stringify(v) : String(v ?? ''))
+
 /**
  * InGameView：Dashboard 布局，左/右信息面板 + 中央交互/等待区
  * @param {object} gameState
@@ -32,48 +58,69 @@ function getPropIcon(key) {
  * @param {function} onBack
  * @param {React.ReactNode} children - 可选，渲染在中央（如 ActionCard 或自定义操作区）
  */
-export default function InGameView({ gameState = {}, myRole = {}, myInventory = {}, clientId = '', onBack, children }) {
-  const gameName = gameState.game_name ?? '游戏进行中'
-  const currentPhase = gameState.current_phase ?? '—'
+function safeNum(v) {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+export default function InGameView({ gameState = {}, myRole = {}, myInventory = {}, clientId = '', onBack, children, submitBusy = false, submitError = null }) {
+  const gameName = toStr(gameState.game_name) || '游戏进行中'
+  const currentPhase = toStr(gameState.current_phase) || '—'
   const dayRound = gameState.current_day_round ?? 1
   const inGameTime = gameState.in_game_time ?? '深夜 02:00'
   const activePlayer = gameState.active_player ?? ''
   const gameLogs = Array.isArray(gameState.game_logs) ? gameState.game_logs : []
   const recentLogs = gameLogs.slice(-3).reverse()
+  const isGameOver = gameState.phase === 'game_over' || currentPhase === '游戏结束'
+  const winner = gameState.winner
+  const statusMessage = gameState.status_message
+  const communityCards = Array.isArray(gameState.community_cards) ? gameState.community_cards : []
+  const pot = safeNum(gameState.pot)
+  const currentBet = safeNum(gameState.current_bet)
 
   const isMyTurn = activePlayer && String(activePlayer) === String(clientId)
   const cards = Array.isArray(myRole?.cards) ? myRole.cards : []
+  const myWord = myRole?.word
+  const isWordGame = myWord != null && String(myWord).trim() !== ''
 
   return (
     <main
-      className="min-h-screen flex flex-col items-center justify-center p-4 md:p-6 relative overflow-hidden"
+      className="min-h-screen w-full flex flex-col items-stretch relative overflow-hidden"
       style={{
         background: 'linear-gradient(145deg, #050805 0%, #0a0f0a 25%, #080c08 50%, #0a0f0a 75%, #050805 100%)',
         color: GOLD
       }}
     >
-      {/* iPad 风格外框：圆角 + 深色描边 + 柔和阴影 */}
-      <div className="w-full max-w-5xl rounded-[2rem] overflow-hidden border-2 border-amber-500/20 shadow-[0_0_60px_rgba(0,0,0,0.6),0_0_0_1px_rgba(212,168,83,0.1)] bg-black/20">
-        {/* 顶部状态栏：紧凑 */}
-        <header className="flex items-center justify-between px-4 md:px-6 py-2.5 border-b border-amber-400/15 bg-black/30">
+      <div className="flex-1 w-full flex flex-col min-h-0">
+        {submitError && (
+          <div className="px-4 py-2 bg-red-500/20 border-b border-red-400/30 text-red-200 text-sm text-center">
+            {submitError}
+          </div>
+        )}
+        <header className="flex items-center justify-between px-4 md:px-6 py-2.5 border-b border-amber-400/15 bg-black/30 shrink-0">
           <div className="text-xs md:text-sm font-medium text-amber-400/80 tracking-widest">
-            第 {dayRound} 天 / 轮
+            {submitBusy ? '处理中…' : `第 ${dayRound} 天 / 轮`}
           </div>
           <h1 className="text-lg md:text-xl font-bold text-amber-300/95 tracking-wider">
             {gameName}
           </h1>
           <div className="text-xs md:text-sm font-medium text-emerald-400/80 tracking-widest">
-            {inGameTime}
+            <CaliforniaTime />
           </div>
         </header>
 
-        {/* 三栏 Dashboard：左 | 中 | 右 */}
-        <div className="grid grid-cols-[1fr] md:grid-cols-[200px_1fr_200px] lg:grid-cols-[220px_1fr_220px] min-h-[480px]">
+        <div className="grid grid-cols-[1fr] md:grid-cols-[200px_1fr_200px] lg:grid-cols-[220px_1fr_220px] flex-1 min-h-0">
           {/* 左侧：我的角色 + 剩余物资 */}
           <aside className="flex flex-col gap-3 p-3 md:p-4 border-r border-amber-400/10 bg-black/20 order-2 md:order-1">
             <section className={`p-3 rounded-xl ${PANEL}`}>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">我的角色</p>
-              {cards.length === 0 ? (
+              <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">
+                {isWordGame ? '我的词语' : cards.length > 0 ? '我的手牌' : '我的角色'}
+              </p>
+              {isWordGame ? (
+                <p className="text-lg font-bold text-amber-300 truncate">
+                  {myWord}
+                </p>
+              ) : cards.length === 0 ? (
                 <p className="text-gray-500 text-xs">—</p>
               ) : (
                 <div className="space-y-2">
@@ -94,22 +141,59 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
                 <p className="text-gray-500 text-xs">—</p>
               ) : (
                 <ul className="space-y-1.5">
-                  {Object.entries(myInventory).map(([key, val]) => (
-                    <li key={key} className="flex items-center gap-2 text-xs text-amber-200/90">
-                      <span className="text-base">{getPropIcon(key)}</span>
-                      <span className="truncate flex-1">{key}</span>
-                      <span className="font-semibold text-amber-300">×{Number(val)}</span>
-                    </li>
-                  ))}
+                  {Object.entries(myInventory).map(([key, val]) => {
+                    const n = safeNum(val)
+                    const display = n != null ? `×${n}` : (typeof val === 'string' ? val : '—')
+                    return (
+                      <li key={key} className="flex items-center gap-2 text-xs text-amber-200/90">
+                        <span className="text-base">{getPropIcon(key)}</span>
+                        <span className="truncate flex-1">{key}</span>
+                        <span className="font-semibold text-amber-300">{display}</span>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </section>
           </aside>
 
-          {/* 中央：有事情做 → 显示 children / 操作区；没事情 → 等待动画 */}
-          <div className="flex flex-col items-center justify-center p-6 md:p-8 min-h-[320px] order-1 md:order-2 border-b md:border-b-0 md:border-r border-amber-400/10 bg-gradient-to-b from-amber-950/10 to-transparent">
+          <div className="flex flex-col items-center justify-center p-6 md:p-8 min-h-[280px] order-1 md:order-2 border-b md:border-b-0 md:border-r border-amber-400/10 bg-gradient-to-b from-amber-950/10 to-transparent overflow-y-auto">
+            {(communityCards.length > 0 || pot != null) && (
+              <div className="w-full max-w-md mb-4 space-y-2">
+                {communityCards.length > 0 && (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {communityCards.map((c, i) => (
+                      <div
+                        key={i}
+                        className="px-3 py-2 rounded-lg border border-amber-400/30 bg-amber-950/30 text-amber-200 font-medium"
+                      >
+                        {c.roleName ?? c.skill_summary ?? '?'}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(pot != null || currentBet != null) && (
+                  <div className="flex justify-center gap-4 text-sm text-amber-300/90">
+                    {pot != null && <span>底池: {pot}</span>}
+                    {currentBet != null && <span>当前下注: {currentBet}</span>}
+                  </div>
+                )}
+              </div>
+            )}
             {children}
-            {!children && isMyTurn && (
+            {!children && isGameOver && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center max-w-md"
+              >
+                <p className="text-2xl md:text-3xl font-bold text-amber-300 mb-4">游戏结束</p>
+                <p className="text-xl font-semibold text-amber-200/95">
+                  {toStr(statusMessage) || (winner === 'civilians' ? '平民找出所有卧底，平民胜！' : winner === 'spies' ? '卧底坚持到最后，卧底胜！' : '')}
+                </p>
+              </motion.div>
+            )}
+            {!children && !isGameOver && isMyTurn && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -119,7 +203,7 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
                 <p className="text-sm text-amber-500/80">请在此处完成操作</p>
               </motion.div>
             )}
-            {!children && !isMyTurn && (
+            {!children && !isGameOver && !isMyTurn && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}

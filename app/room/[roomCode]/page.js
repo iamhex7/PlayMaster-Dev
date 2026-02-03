@@ -69,7 +69,12 @@ export default function RoomPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'registerPlayer', roomCode, clientId })
-    }).catch(() => {})
+    })
+      .then((res) => res.json().catch(() => ({})))
+      .then((data) => {
+        if (data?.player_count != null) setPlayerCount(data.player_count)
+      })
+      .catch(() => {})
   }, [roomCode, clientId])
 
   useEffect(() => {
@@ -208,13 +213,13 @@ export default function RoomPage() {
   const handleGameStart = async () => {
     if (!isHost) return
     const sampleGameId = typeof window !== 'undefined' ? localStorage.getItem('playmaster_sample_game_' + roomCode) : null
-    if (sampleGameId === 'neon-heist') {
+    if (sampleGameId === 'neon-heist' || sampleGameId === 'among-us') {
       setIsProcessing(true)
       try {
         const res = await fetch('/api/game', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'parseRules', roomCode, gameId: 'neon-heist' })
+          body: JSON.stringify({ action: 'parseRules', roomCode, gameId: sampleGameId })
         })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) {
@@ -394,13 +399,13 @@ export default function RoomPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2 text-sm text-amber-200/80">
                 <Users className="w-4 h-4" />
-                <span>{count} Players</span>
+                <span>{Math.max(count, playerCount)} Players</span>
               </div>
-              <span className="text-sm text-amber-200/60">{count} / {count} Ready</span>
+              <span className="text-sm text-amber-200/60">{Math.max(count, playerCount)} / {Math.max(count, playerCount)} Ready</span>
             </div>
 
             <div className="space-y-2 mb-6 max-h-48 overflow-y-auto">
-              {players.map((player, index) => (
+              {(players.length > 0 ? players : (playerCount >= 1 ? [{ id: clientId, isSelf: true, name: isHost ? 'You (Host)' : 'You' }] : [])).map((player, index) => (
                 <motion.div
                   key={player.id}
                   initial={{ opacity: 0, x: -20 }}
@@ -588,7 +593,7 @@ export default function RoomPage() {
         )}
       </AnimatePresence>
 
-      {/* 临时：ActionCard 四种协议测试按钮 */}
+      {process.env.NODE_ENV === 'development' && (
       <div className="fixed bottom-2 left-0 right-0 z-40 flex flex-wrap items-center justify-center gap-2 px-2 py-2 bg-black/50 backdrop-blur-sm border-t border-amber-400/20">
         <span className="text-xs text-amber-400/80 mr-1">ActionCard 测试:</span>
         <button
@@ -620,6 +625,7 @@ export default function RoomPage() {
           VIEW
         </button>
       </div>
+      )}
     </main>
   )
 }

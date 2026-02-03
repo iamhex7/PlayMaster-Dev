@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { parseRules, checkGeminiConnection } from '@/lib/gemini'
 import { processGameTick } from '@/lib/gemini/gm-engine'
-import { deal } from '@/lib/dealer'
-import { SAMPLE_GAMES } from '@/lib/constants'
+import { initializeByAI } from '@/lib/gemini/initializer'
+import { deal, dealAmongUs, canBuildDeck } from '@/lib/dealer'
+import { SAMPLE_GAMES, AMONG_US_WORD_PAIRS } from '@/lib/constants'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
@@ -117,16 +118,16 @@ export async function POST(request) {
           .update({ player_count: count, updated_at: new Date().toISOString() })
           .eq('id', roomRow.id)
       }
-      return Response.json({ ok: true }, { status: 200 })
+      return Response.json({ ok: true, player_count: typeof count === 'number' ? count : 0 }, { status: 200 })
     }
 
     if (action === 'parseRules') {
       const gameId = body.gameId?.trim()
-      const useSampleGame = gameId === 'neon-heist' && SAMPLE_GAMES['neon-heist']
+      const useSampleGame = gameId && SAMPLE_GAMES[gameId]
 
       let result
       if (useSampleGame) {
-        result = SAMPLE_GAMES['neon-heist']
+        result = SAMPLE_GAMES[gameId]
       } else {
         let rulesText = body.rulesText || ''
         let pdfBuffer = null
@@ -250,6 +251,16 @@ export async function POST(request) {
 
       const gameState = roomRow.game_state && typeof roomRow.game_state === 'object' ? roomRow.game_state : {}
       const alreadyInitialized = gameState.initialized === true
+      const schema = gameConfig?.game_schema || {}
+      const distType = schema?.distribution?.type || 'roles'
+      const isBuiltinAmongUs = gameConfig?.gameId === 'among-us'
+      const roleDistRules =
+        gameConfig?.role_distribution_rules ?? schema?.distribution?.role_distribution_rules ?? []
+      const isWordsWithPreset =
+        (distType === 'words' || isBuiltinAmongUs) &&
+        (isBuiltinAmongUs || (Array.isArray(roleDistRules) && roleDistRules.length > 0))
+      const isDeckBased =
+        (distType === 'roles' || distType === 'cards' || distType === 'mixed') && canBuildDeck(gameConfig)
 
       if (!alreadyInitialized) {
         await supabase
@@ -257,48 +268,188 @@ export async function POST(request) {
           .update({ status: 'ASSIGNING_ROLES', updated_at: new Date().toISOString() })
           .eq('room_code', roomCode)
 
-        if (typeof gameConfig?.cards_per_player !== 'number') gameConfig.cards_per_player = 1
-
         const dealSeed = `${roomRow.id}-${Date.now()}`
-        const { assignments, remainder } = deal(gameConfig, playerClientIds, dealSeed)
-        const initialItems = gameConfig.initial_items && typeof gameConfig.initial_items === 'object' ? gameConfig.initial_items : { coins: 2 }
 
-        for (const cid of playerClientIds) {
-          const hand = assignments[cid] || []
-          const roleInfo = { cards: hand }
-          if (hand.length === 0) console.warn('[initializeGame] empty hand for client:', cid?.slice(0, 8))
-          const { error: upsertErr } = await supabase.from('players').upsert(
-            {
-              room_id: roomRow.id,
-              client_id: cid,
-              role_info: roleInfo,
-              inventory: initialItems,
-              created_at: new Date().toISOString()
-            },
-            { onConflict: 'room_id,client_id' }
+        if (isWordsWithPreset) {
+          const configForDeal = { ...gameConfig, role_distribution_rules: roleDistRules }
+          const { assignments, gameStateExtras } = dealAmongUs(
+            configForDeal,
+            playerClientIds,
+            dealSeed,
+            AMONG_US_WORD_PAIRS
           )
-          if (upsertErr) {
-            console.error('[initializeGame] players upsert failed:', upsertErr.message)
-            return Response.json({ error: 'Failed to save player data' }, { status: 500 })
+          for (const cid of playerClientIds) {
+            const { role, word } = assignments[cid] || { role: 'civilian', word: '' }
+            const roleInfo = { role, word, cards: [{ roleName: role === 'blank' ? '白板' : role === 'spy' ? '卧底' : '平民', skill_summary: word || '无词，全靠猜' }] }
+            const { error: upsertErr } = await supabase.from('players').upsert(
+              {
+                room_id: roomRow.id,
+                client_id: cid,
+                role_info: roleInfo,
+                inventory: {},
+                created_at: new Date().toISOString()
+              },
+              { onConflict: 'room_id,client_id' }
+            )
+            if (upsertErr) {
+              console.error('[initializeGame] players upsert failed:', upsertErr.message)
+              return Response.json({ error: 'Failed to save player data' }, { status: 500 })
+            }
           }
-        }
+          const newGameState = {
+            ...gameState,
+            ...gameStateExtras,
+            deal_seed: dealSeed,
+            gameId: gameConfig?.gameId || 'among-us',
+            game_name: gameConfig?.game_name || '谁是卧底',
+            initialized: true
+          }
+          const { error: updateStateErr } = await supabase
+            .from('rooms')
+            .update({
+              game_state: newGameState,
+              status: 'ROLE_REVEAL',
+              updated_at: new Date().toISOString()
+            })
+            .eq('room_code', roomCode)
+          if (updateStateErr) {
+            return Response.json({ error: 'Failed to update room state' }, { status: 500 })
+          }
+        } else if (isDeckBased) {
+          const schemaDist = schema?.distribution || {}
+          let cardsPerPlayer = typeof gameConfig?.cards_per_player === 'number'
+            ? gameConfig.cards_per_player
+            : (typeof schemaDist.cards_per_player === 'number' ? schemaDist.cards_per_player : null)
+          if (cardsPerPlayer == null && schemaDist.deck_type === 'standard_52') {
+            cardsPerPlayer = 2
+          }
+          gameConfig.cards_per_player = cardsPerPlayer ?? 1
+          const { assignments, remainder } = deal(gameConfig, playerClientIds, dealSeed)
+          let initialItems = gameConfig.initial_items && typeof gameConfig.initial_items === 'object' ? { ...gameConfig.initial_items } : { coins: 2 }
+          for (const k of ['chips', 'credits', 'coins']) {
+            if (k in initialItems && (typeof initialItems[k] !== 'number' || !Number.isFinite(initialItems[k]))) {
+              initialItems[k] = 2000
+            }
+          }
 
-        const newGameState = {
-          ...gameState,
-          deck: remainder,
-          deal_seed: dealSeed,
-          initialized: true
-        }
-        const { error: updateStateErr } = await supabase
-          .from('rooms')
-          .update({
-            game_state: newGameState,
-            status: 'ROLE_REVEAL',
-            updated_at: new Date().toISOString()
-          })
-          .eq('room_code', roomCode)
-        if (updateStateErr) {
-          return Response.json({ error: 'Failed to update room state' }, { status: 500 })
+          for (const cid of playerClientIds) {
+            const hand = assignments[cid] || []
+            const roleInfo = { cards: hand }
+            if (hand.length === 0) console.warn('[initializeGame] empty hand for client:', cid?.slice(0, 8))
+            const { error: upsertErr } = await supabase.from('players').upsert(
+              {
+                room_id: roomRow.id,
+                client_id: cid,
+                role_info: roleInfo,
+                inventory: initialItems,
+                created_at: new Date().toISOString()
+              },
+              { onConflict: 'room_id,client_id' }
+            )
+            if (upsertErr) {
+              console.error('[initializeGame] players upsert failed:', upsertErr.message)
+              return Response.json({ error: 'Failed to save player data' }, { status: 500 })
+            }
+          }
+
+          const newGameState = {
+            ...gameState,
+            deck: remainder,
+            deal_seed: dealSeed,
+            game_name: gameConfig?.game_name || '游戏',
+            gameId: gameConfig?.gameId,
+            initialized: true
+          }
+          const { error: updateStateErr } = await supabase
+            .from('rooms')
+            .update({
+              game_state: newGameState,
+              status: 'ROLE_REVEAL',
+              updated_at: new Date().toISOString()
+            })
+            .eq('room_code', roomCode)
+          if (updateStateErr) {
+            return Response.json({ error: 'Failed to update room state' }, { status: 500 })
+          }
+        } else {
+          try {
+            const wordPairs =
+              schema?.distribution?.word_generation === 'preset_pairs' || isBuiltinAmongUs
+                ? AMONG_US_WORD_PAIRS
+                : []
+            const { assignments, game_state_extras, inventory_default } = await initializeByAI(
+              gameConfig,
+              playerClientIds,
+              dealSeed,
+              wordPairs
+            )
+            let invDefault =
+              inventory_default && typeof inventory_default === 'object' ? { ...inventory_default } : {}
+            for (const k of ['chips', 'credits', 'coins']) {
+              if (k in invDefault && (typeof invDefault[k] !== 'number' || !Number.isFinite(invDefault[k]))) {
+                invDefault[k] = 2000
+              }
+            }
+            for (const cid of playerClientIds) {
+              const a = assignments[cid] || {}
+              let roleInfo = {}
+              if (a.word != null) {
+                roleInfo = {
+                  role: a.role || 'civilian',
+                  word: a.word || '',
+                  cards: [
+                    {
+                      roleName: a.role === 'blank' ? '白板' : a.role === 'spy' ? '卧底' : '平民',
+                      skill_summary: a.word || '无词，全靠猜'
+                    }
+                  ]
+                }
+              } else if (Array.isArray(a.cards)) {
+                roleInfo = { cards: a.cards }
+              } else {
+                roleInfo = { cards: [{ roleName: a.roleName || '未知', skill_summary: a.skill_summary || '' }] }
+              }
+              const { error: upsertErr } = await supabase.from('players').upsert(
+                {
+                  room_id: roomRow.id,
+                  client_id: cid,
+                  role_info: roleInfo,
+                  inventory: { ...invDefault, ...(a.inventory || {}) },
+                  created_at: new Date().toISOString()
+                },
+                { onConflict: 'room_id,client_id' }
+              )
+              if (upsertErr) {
+                console.error('[initializeGame] AI init players upsert failed:', upsertErr.message)
+                return Response.json({ error: 'Failed to save player data' }, { status: 500 })
+              }
+            }
+            const newGameState = {
+              ...gameState,
+              ...game_state_extras,
+              deal_seed: dealSeed,
+              game_name: gameConfig?.game_name || '游戏',
+              gameId: gameConfig?.gameId,
+              initialized: true
+            }
+            const { error: updateStateErr } = await supabase
+              .from('rooms')
+              .update({
+                game_state: newGameState,
+                status: 'ROLE_REVEAL',
+                updated_at: new Date().toISOString()
+              })
+              .eq('room_code', roomCode)
+            if (updateStateErr) {
+              return Response.json({ error: 'Failed to update room state' }, { status: 500 })
+            }
+          } catch (initErr) {
+            console.error('[initializeGame] AI init failed:', initErr?.message || initErr)
+            return Response.json(
+              { error: 'AI 初始化失败：' + (initErr?.message || '未知错误') },
+              { status: 500 }
+            )
+          }
         }
       } else {
         const { error: statusErr } = await supabase
@@ -313,13 +464,16 @@ export async function POST(request) {
     if (action === 'getGameState') {
       const { data: roomRow, error: roomErr } = await supabase
         .from('rooms')
-        .select('game_state, status')
+        .select('game_state, game_config, status')
         .eq('room_code', roomCode)
         .single()
       if (roomErr || !roomRow) {
         return Response.json({ error: 'Room not found' }, { status: 404 })
       }
       const game_state = roomRow.game_state && typeof roomRow.game_state === 'object' ? roomRow.game_state : {}
+      if (!game_state.game_name && roomRow.game_config?.game_name) {
+        game_state.game_name = roomRow.game_config.game_name
+      }
       return Response.json({ game_state, status: roomRow.status ?? 'LOBBY' })
     }
 

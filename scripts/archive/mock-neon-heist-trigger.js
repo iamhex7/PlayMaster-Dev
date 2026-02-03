@@ -1,13 +1,7 @@
 /**
- * 模拟触发脚本：进入房间 -> 触发开局逻辑 -> 玩家应看到 CONFIRM 弹窗
- *
- * 使用前：
- * 1. 启动 Next 开发服务器：npm run dev
- * 2. 已有一个 Neon Heist 房间且完成简报、已 initializeGame（game_state.initialized === true）
- * 3. 设置环境变量或传参：ROOM_CODE=你的房间码，BASE_URL=http://localhost:3000（可选）
- *
- * 运行：node scripts/mock-neon-heist-trigger.js [房间码]
- * 或：  ROOM_CODE=ABC123 node scripts/mock-neon-heist-trigger.js
+ * [已归档] 模拟触发 GAME_START 并轮询 pending_action。
+ * 通用测试脚本，适用于任意已初始化的房间。
+ * 运行：node scripts/archive/mock-neon-heist-trigger.js [房间码]
  */
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000'
@@ -37,7 +31,7 @@ async function submitEvent(roomCode, lastEvent) {
 async function main() {
   const roomCode = ROOM_CODE.trim()
   if (!roomCode) {
-    console.error('请提供房间码：ROOM_CODE=xxx node scripts/mock-neon-heist-trigger.js 或 node scripts/mock-neon-heist-trigger.js <房间码>')
+    console.error('请提供房间码：node scripts/archive/mock-neon-heist-trigger.js <房间码>')
     process.exit(1)
   }
 
@@ -68,9 +62,8 @@ async function main() {
     console.log('ActionCard 应弹出，类型:', pending.type)
     console.log('params:', JSON.stringify(pending.params, null, 2))
     console.log('target_uid:', pending.target_uid)
-    console.log('若前端已订阅/轮询 game_state，玩家应看到 CONFIRM 询问框（如：「是否消耗 1 点行动点 (AP) 尝试绕过第一道安全网格？」）')
   } else {
-    console.log('\n未在轮询内获得 current_pending_action，请检查：房间是否已 initializeGame、GM 是否返回了 interactive_action、或 BASE_URL 是否指向正确服务。')
+    console.log('\n未在轮询内获得 current_pending_action，请检查房间是否已 initializeGame、GM 是否返回了 next_action。')
   }
 }
 
