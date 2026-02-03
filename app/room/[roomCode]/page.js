@@ -212,6 +212,14 @@ export default function RoomPage() {
 
   const handleGameStart = async () => {
     if (!isHost) return
+    
+    // 如果已经有游戏配置，直接跳转到briefing页面
+    if (gameConfig) {
+      setRoomStatus('BRIEFING')
+      router.push(`/room/${encodeURIComponent(roomCode)}/briefing`)
+      return
+    }
+    
     const sampleGameId = typeof window !== 'undefined' ? localStorage.getItem('playmaster_sample_game_' + roomCode) : null
     if (sampleGameId === 'neon-heist' || sampleGameId === 'among-us' || sampleGameId === 'texas-holdem') {
       setIsProcessing(true)
@@ -239,6 +247,8 @@ export default function RoomPage() {
       }
       return
     }
+    
+    // 如果没有规则，打开Host Console让host输入规则
     setShowHostConsole(true)
   }
 
@@ -456,8 +466,8 @@ export default function RoomPage() {
 
             <button
               onClick={handleGameStart}
-              disabled={isProcessing}
-              className="w-full rounded-lg border-2 border-amber-400 bg-amber-500/20 py-3 flex items-center justify-center gap-2 text-sm font-semibold text-amber-100 transition-all hover:bg-amber-500/30 hover:shadow-[0_0_20px_rgba(212,168,83,0.3)] disabled:opacity-70 disabled:cursor-wait"
+              disabled={isProcessing || !isHost}
+              className="w-full rounded-lg border-2 border-amber-400 bg-amber-500/20 py-3 flex items-center justify-center gap-2 text-sm font-semibold text-amber-100 transition-all hover:bg-amber-500/30 hover:shadow-[0_0_20px_rgba(212,168,83,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing ? (
                 <>

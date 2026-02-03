@@ -53,7 +53,11 @@ export default function BriefingPage() {
   useEffect(() => {
     setOpeningDisplayed('')
     setTypewriterDone(false)
-    if (!openingSpeech) return
+    if (!openingSpeech) {
+      // 如果开场白为空，立即显示按钮
+      setTypewriterDone(true)
+      return
+    }
     let i = 0
     const interval = setInterval(() => {
       if (i < openingSpeech.length) {
