@@ -38,14 +38,14 @@ export default function BriefingPage() {
   const [roomStatus, setRoomStatus] = useState('BRIEFING')
   const [clientId] = useState(() => {
     if (typeof window === 'undefined') return ''
-    const key = 'playmaster_client_id'
+    const key = 'yourturn_client_id'
     const stored = sessionStorage.getItem(key)
     if (stored) return stored
     const id = typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36)
     sessionStorage.setItem(key, id)
     return id
   })
-  const isHost = typeof window !== 'undefined' && localStorage.getItem('playmaster_host') === roomCode
+  const isHost = typeof window !== 'undefined' && localStorage.getItem('yourturn_host') === roomCode
 
   const openingSpeech = gameConfig?.opening_speech ?? gameConfig?.announcement_script ?? ''
 
@@ -225,13 +225,13 @@ export default function BriefingPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setInitError(data.error || '初始化失败')
+        setInitError(data.error || 'Initialization failed')
         autoTriggeredRef.current = false
         return
       }
       router.replace(`/room/${encodeURIComponent(roomCode)}/role`)
     } catch (_) {
-      setInitError('网络错误')
+      setInitError('Network error')
       autoTriggeredRef.current = false
     } finally {
       setInitializing(false)
@@ -290,7 +290,7 @@ export default function BriefingPage() {
   const resourcesText = gameConfig?.resources ?? ''
   const phasesContent = gameConfig?.phases
   const phasesText = Array.isArray(phasesContent)
-    ? phasesContent.map((p, i) => (typeof p === 'string' ? p : `阶段 ${i + 1}: ${JSON.stringify(p)}`)).join('\n\n')
+    ? phasesContent.map((p, i) => (typeof p === 'string' ? p : `Phase ${i + 1}: ${JSON.stringify(p)}`)).join('\n\n')
     : (typeof phasesContent === 'string' ? phasesContent : '')
   const winConditionText = gameConfig?.win_condition ?? ''
 
@@ -312,20 +312,20 @@ export default function BriefingPage() {
             className="flex flex-col items-center justify-center min-h-[70vh] gap-6"
           >
             <span className="inline-block w-12 h-12 border-4 border-amber-500/60 border-t-transparent rounded-full animate-spin" />
-            <h2 className="text-xl font-semibold text-amber-400/95">角色分发中</h2>
-            <p className="text-sm text-gray-400">AI 正在分配身份卡，请稍候...</p>
+            <h2 className="text-xl font-semibold text-amber-400/95">Assigning roles</h2>
+            <p className="text-sm text-gray-400">AI is assigning roles, please wait...</p>
           </motion.div>
         )}
 
         {!loading && !gameConfig && !(roomStatus === 'ASSIGNING_ROLES' || initializing) && (
           <div className="flex flex-col items-center justify-center min-h-[40vh] text-gray-400">
-            <p className="text-lg">暂无规则内容，请房主在 Host Console 提交规则后刷新。</p>
+            <p className="text-lg">No rules yet. Host should submit rules in Host Console, then refresh.</p>
           </div>
         )}
 
         {loading && !gameConfig && !(roomStatus === 'ASSIGNING_ROLES' || initializing) && (
           <div className="flex flex-col items-center justify-center min-h-[40vh] text-gray-400">
-            <p className="text-lg">正在同步 AI 主持人的剧本...</p>
+            <p className="text-lg">Syncing AI host script...</p>
             <span className="mt-2 inline-block w-6 h-6 border-2 border-amber-500/50 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
@@ -336,7 +336,7 @@ export default function BriefingPage() {
               className="text-3xl md:text-4xl font-bold text-amber-400 tracking-wider mb-6 text-center"
               style={{ fontFamily: 'serif' }}
             >
-              {gameConfig.game_name || '游戏规则'}
+              {gameConfig.game_name || 'Game Rules'}
             </h1>
 
             <section className="mb-8">
@@ -349,17 +349,17 @@ export default function BriefingPage() {
 
             <div className="grid gap-4 mb-10">
               {resourcesText && (
-                <RuleCard title="初始设定 (Resources)" delay={0.1}>
+                <RuleCard title="Resources" delay={0.1}>
                   {resourcesText}
                 </RuleCard>
               )}
               {phasesText && (
-                <RuleCard title="阶段流程 (Phases)" delay={0.2}>
+                <RuleCard title="Phases" delay={0.2}>
                   {phasesText}
                 </RuleCard>
               )}
               {winConditionText && (
-                <RuleCard title="获胜条件 (Win Condition)" delay={0.3}>
+                <RuleCard title="Win Condition" delay={0.3}>
                   {winConditionText}
                 </RuleCard>
               )}
@@ -373,22 +373,22 @@ export default function BriefingPage() {
                 className="flex flex-col items-center gap-6 fixed bottom-6 left-0 right-0"
               >
                 <BigActionButton onClick={handleAck} disabled={acked || initializing}>
-                  {acked ? '✓ 我已了解' : '我已了解 (I\'m Ready)'}
+                  {acked ? '✓ I\'m Ready' : 'I\'m Ready'}
                 </BigActionButton>
                 {/* 实时确认计数：Supabase Realtime 订阅 rooms.briefing_acks 与 players 表数量 */}
                 <p className="text-sm text-gray-400">
-                  已确认 {briefingAcks.length} / {Math.max(playersCount, briefingAcks.length, 1)} 人
+                  {briefingAcks.length} / {Math.max(playersCount, briefingAcks.length, 1)} confirmed
                 </p>
                 {initError && (
                   <div className="rounded-lg border border-red-500/40 bg-red-950/30 px-4 py-3 text-center">
                     <p className="text-red-300 text-sm">{initError}</p>
-                    <p className="text-gray-500 text-xs mt-1">请检查人数是否在规则范围内，或稍后重试。</p>
+                    <p className="text-gray-500 text-xs mt-1">Check player count is within rules, or retry later.</p>
                   </div>
                 )}
                 {initializing && (
                   <div className="flex flex-col items-center gap-2 text-amber-400/90">
                     <span className="inline-block w-6 h-6 border-2 border-amber-500/50 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-sm font-medium">AI 正在分发身份卡...</span>
+                    <span className="text-sm font-medium">AI is assigning roles...</span>
                   </div>
                 )}
               </motion.div>

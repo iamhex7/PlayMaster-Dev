@@ -28,7 +28,7 @@ export default function RoleRevealPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const id = sessionStorage.getItem('playmaster_client_id') || ''
+    const id = sessionStorage.getItem('yourturn_client_id') || ''
     setClientId(id)
   }, [])
 
@@ -138,7 +138,7 @@ export default function RoleRevealPage() {
       .catch(() => {
         if (!cancelled) {
           setLoading(false)
-          setError('无法加载身份')
+          setError('Failed to load role')
         }
       })
     return () => { cancelled = true }
@@ -158,7 +158,7 @@ export default function RoleRevealPage() {
     ? (rawPending.type?.toLowerCase() === 'select'
         ? {
             type: 'SELECT',
-            title: rawPending.params?.title || rawPending.params?.label || '请选择',
+            title: rawPending.params?.title || rawPending.params?.label || 'Choose',
             options: Array.isArray(rawPending.params?.options) && rawPending.params.options.length > 0
               ? rawPending.params.options
               : (Array.isArray(rawPending.params?.action_options) ? rawPending.params.action_options : []).map((o) =>
@@ -170,7 +170,7 @@ export default function RoleRevealPage() {
         : rawPending.type?.toLowerCase() === 'input'
           ? {
               type: 'INPUT',
-              title: rawPending.params?.title || rawPending.params?.label || '请输入',
+              title: rawPending.params?.title || rawPending.params?.label || 'Enter',
               value: rawPending.params?.value ?? 0,
               min: rawPending.params?.min ?? 0,
               max: rawPending.params?.max ?? 10000,
@@ -203,7 +203,7 @@ export default function RoleRevealPage() {
       .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
       .then(({ ok, data }) => {
         if (!ok) {
-          setSubmitError(data?.error || '提交失败，请重试')
+          setSubmitError(data?.error || 'Submit failed, please retry')
           return
         }
         fetchGameState()
@@ -217,7 +217,7 @@ export default function RoleRevealPage() {
           refetchMyRole()
         }, 3500)
       })
-      .catch((err) => setSubmitError(err?.message || '网络错误，请重试'))
+      .catch((err) => setSubmitError(err?.message || 'Network error, please retry'))
       .finally(() => setSubmitBusy(false))
   }
 
@@ -262,19 +262,19 @@ export default function RoleRevealPage() {
       <div className="relative z-10 w-full max-w-md mx-auto flex flex-col items-center">
         {loading && (
           <div className="flex flex-col items-center justify-center min-h-[50vh] text-gray-400">
-            <p className="text-lg">正在获取你的身份...</p>
+            <p className="text-lg">Loading your role...</p>
             <span className="mt-4 inline-block w-8 h-8 border-2 border-amber-500/50 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
 
         {!loading && !clientId && (
           <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-6 text-center">
-            <p className="text-amber-200/90">请先进入简报页确认身份后再查看手牌。</p>
+            <p className="text-amber-200/90">Please go to the briefing page and confirm before viewing your hand.</p>
             <button
               onClick={() => router.push(`/room/${encodeURIComponent(roomCode)}/briefing`)}
               className="mt-4 px-6 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm"
             >
-              前往简报
+              Go to Briefing
             </button>
           </div>
         )}
@@ -289,13 +289,13 @@ export default function RoleRevealPage() {
               onClick={() => { setRetryCount((c) => c + 1); setLoading(true); setError(null) }}
               className="mt-4 px-6 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm"
             >
-              重试获取身份
+              Retry
             </button>
             <button
               onClick={() => router.push(`/room/${encodeURIComponent(roomCode)}/briefing`)}
               className="mt-2 block w-full py-2 text-gray-400 hover:text-gray-300 text-sm"
             >
-              返回宣讲页
+              Back to Briefing
             </button>
           </div>
         )}
@@ -303,7 +303,7 @@ export default function RoleRevealPage() {
         {!loading && !error && clientId && roleInfo !== null && (
           <>
             <h1 className="text-2xl font-semibold text-amber-400/95 tracking-wider mb-8 text-center">
-              {isAmongUs ? '你的词语' : '你的身份'}
+              {isAmongUs ? 'Your Word' : 'Your Role'}
             </h1>
             <motion.div
               className="w-full max-w-sm cursor-pointer perspective-1000"
@@ -323,8 +323,8 @@ export default function RoleRevealPage() {
                     <div className="text-amber-600/80 text-sm uppercase tracking-[0.3em] mb-4">
                       Secret
                     </div>
-                    <p className="text-amber-500/90 text-lg font-medium mb-2">点击翻牌</p>
-                    <p className="text-gray-500 text-sm">{isAmongUs ? '揭开你的词语' : '揭开你的身份'}</p>
+                    <p className="text-amber-500/90 text-lg font-medium mb-2">Click to flip</p>
+                    <p className="text-gray-500 text-sm">{isAmongUs ? 'Reveal your word' : 'Reveal your role'}</p>
                   </motion.div>
                 ) : (
                   <motion.div
@@ -336,10 +336,10 @@ export default function RoleRevealPage() {
                   >
                     {cards.length === 0 && !isAmongUs ? (
                       <div className="space-y-4">
-                        <p className="text-amber-200/90 text-center">暂无手牌数据</p>
+                        <p className="text-amber-200/90 text-center">No hand data yet</p>
                         {Object.keys(inventory || {}).length > 0 && (
                           <div className="pt-2 border-t border-amber-500/20">
-                            <p className="text-amber-500/80 text-xs uppercase tracking-wider mb-1">初始资源</p>
+                            <p className="text-amber-500/80 text-xs uppercase tracking-wider mb-1">Initial Resources</p>
                             <p className="text-amber-200/80 text-sm">
                               {Object.entries(inventory)
                                 .map(([k, v]) => `${k}: ${v}`)
@@ -353,14 +353,14 @@ export default function RoleRevealPage() {
                         {isAmongUs && (
                           <div className="text-center py-8 px-6 rounded-xl bg-amber-950/40">
                             <p className="text-4xl font-bold text-amber-200 tracking-wide">
-                              {myWord || '（无词，全靠猜）'}
+                              {myWord || '(No word, guess)'}
                             </p>
                           </div>
                         )}
                         {!isAmongUs && cards.map((card, i) => (
                           <div key={i} className="border-b border-amber-500/20 pb-4 last:border-0 last:pb-0">
                             <h2 className="text-xl font-bold text-amber-300 tracking-wide">
-                              {card.roleName ?? '未知角色'}
+                              {card.roleName ?? 'Unknown'}
                             </h2>
                             {card.skill_summary && !isAmongUs && (
                               <p className="text-amber-200/80 text-sm mt-2 leading-relaxed">
@@ -371,7 +371,7 @@ export default function RoleRevealPage() {
                         ))}
                         {!isAmongUs && Object.keys(inventory || {}).length > 0 && (
                           <div className="pt-2">
-                            <p className="text-amber-500/80 text-xs uppercase tracking-wider mb-1">初始资源</p>
+                            <p className="text-amber-500/80 text-xs uppercase tracking-wider mb-1">Initial Resources</p>
                             <p className="text-amber-200/80 text-sm">
                               {Object.entries(inventory)
                                 .map(([k, v]) => `${k}: ${v}`)
@@ -393,7 +393,7 @@ export default function RoleRevealPage() {
                 onClick={() => setShowInGame(true)}
                 className="mt-6 px-10 py-3.5 rounded-xl font-semibold text-black tracking-wide border-2 border-amber-400 bg-[#D4AF37] hover:bg-amber-300 shadow-[0_0_25px_rgba(212,168,83,0.4)] hover:shadow-[0_0_35px_rgba(212,168,83,0.5)] transition-all"
               >
-                继续 (Continue)
+                Continue
               </motion.button>
             )}
           </>

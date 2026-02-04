@@ -14,9 +14,9 @@ function generateRoomCode() {
 }
 
 const SAMPLES = [
-  { id: 'AMONGUS', gameId: 'among-us', name: '谁是卧底', tag: 'Social Deduction', players: '4-12', description: '通过描述发现同伴、找出卧底；卧底则隐藏身份、伪装平民。' },
+  { id: 'AMONGUS', gameId: 'among-us', name: 'Undercover', tag: 'Social Deduction', players: '4-12', description: 'Describe to find allies and spot the spy; spies hide and blend in with civilians.' },
   { id: 'NEONHEIST', gameId: 'neon-heist', name: 'Neon Heist', tag: 'Roleplay', players: '3-5', description: "Coordinate a high-tech team to infiltrate a megacorp's vault and crack the code before the security drones lock down the sector." },
-  { id: 'TEXASHOLDEM', gameId: 'texas-holdem', name: '德州扑克', tag: 'Card Game', players: '1-10', description: '每人 2 张底牌，通过翻牌、转牌、河牌与下注，组成最强五张牌。牌型从高到低：皇家同花顺、同花顺、四条、满堂红、同花、顺子、三条、两对、一对、高牌。' },
+  { id: 'TEXASHOLDEM', gameId: 'texas-holdem', name: 'Texas Hold\'em', tag: 'Card Game', players: '1-10', description: '2 hole cards each. Build the best 5-card hand with flop, turn, and river. Rankings: Royal Flush, Straight Flush, Four of a Kind, Full House, Flush, Straight, Three of a Kind, Two Pair, One Pair, High Card.' },
 ]
 
 function triggerHaptic() {
@@ -51,8 +51,8 @@ export default function SampleGamesFlip({ isOpen, onClose }) {
     if (sample.gameId === 'neon-heist' || sample.gameId === 'among-us' || sample.gameId === 'texas-holdem') {
       const roomCode = generateRoomCode()
       if (typeof window !== 'undefined') {
-        localStorage.setItem('playmaster_host', roomCode)
-        localStorage.setItem('playmaster_sample_game_' + roomCode, sample.gameId)
+        localStorage.setItem('yourturn_host', roomCode)
+        localStorage.setItem('yourturn_sample_game_' + roomCode, sample.gameId)
       }
       setIsExiting(true)
       try {
@@ -64,7 +64,7 @@ export default function SampleGamesFlip({ isOpen, onClose }) {
         const data = await res.json().catch(() => ({}))
         if (!res.ok) {
           setIsExiting(false)
-          alert(data.error || '创建房间失败')
+          alert(data.error || 'Failed to create room')
           return
         }
         setTimeout(() => {
@@ -72,7 +72,7 @@ export default function SampleGamesFlip({ isOpen, onClose }) {
         }, 380)
       } catch (e) {
         setIsExiting(false)
-        alert('创建房间失败：' + (e?.message || '网络错误'))
+        alert('Failed to create room: ' + (e?.message || 'Network error'))
       }
       return
     }

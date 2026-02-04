@@ -3,6 +3,7 @@ import { parseRules, checkGeminiConnection } from '@/lib/gemini'
 import { processGameTick } from '@/lib/gemini/gm-engine'
 import { deal } from '@/lib/dealer'
 import { SAMPLE_GAMES } from '@/lib/constants'
+import { push as debugLog } from '@/lib/debug-log.js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
@@ -105,7 +106,7 @@ export async function POST(request) {
             .single()
           if (insertError) {
             console.error('[enterRoom] insert fallback failed:', insertError.message)
-            return Response.json({ error: '房间创建失败：' + insertError.message }, { status: 500 })
+            return Response.json({ error: 'Room creation failed: ' + insertError.message }, { status: 500 })
           }
           rowId = insertData?.id
         }
@@ -170,7 +171,7 @@ export async function POST(request) {
           result = await parseRules(rulesText || ' ', pdfBuffer)
         } catch (parseErr) {
           console.error('[parseRules] Gemini parse failed:', parseErr)
-          return Response.json({ error: '规则解析失败：' + (parseErr?.message || 'AI 解析错误') }, { status: 500 })
+          return Response.json({ error: 'Rules parsing failed: ' + (parseErr?.message || 'AI parse error') }, { status: 500 })
         }
       }
 
@@ -185,7 +186,7 @@ export async function POST(request) {
           .insert({ room_code: roomCode, room_password: roomCode, status: 'LOBBY', updated_at: new Date().toISOString() })
         if (insertErr) {
           console.error('[parseRules] room insert failed:', insertErr.message)
-          return Response.json({ error: '房间不存在且创建失败：' + insertErr.message }, { status: 500 })
+          return Response.json({ error: 'Room not found and creation failed: ' + insertErr.message }, { status: 500 })
         }
       }
 
@@ -311,7 +312,7 @@ export async function POST(request) {
       
       if (n < minPlayers || n > maxPlayers) {
         return Response.json(
-          { error: `当前确认人数 ${n} 不在允许范围内（${minPlayers}–${maxPlayers} 人）。` },
+          { error: `Confirmed count ${n} is outside allowed range (${minPlayers}–${maxPlayers} players).` },
           { status: 400 }
         )
       }
@@ -381,14 +382,17 @@ export async function POST(request) {
     if (action === 'getGameState') {
       const { data: roomRow, error: roomErr } = await supabase
         .from('rooms')
-        .select('game_state, status')
+        .select('game_state, game_config, status')
         .eq('room_code', roomCode)
         .single()
       if (roomErr || !roomRow) {
         return Response.json({ error: 'Room not found' }, { status: 404 })
       }
       const game_state = roomRow.game_state && typeof roomRow.game_state === 'object' ? roomRow.game_state : {}
-      return Response.json({ game_state, status: roomRow.status ?? 'LOBBY' })
+      const game_config = roomRow.game_config && typeof roomRow.game_config === 'object' ? roomRow.game_config : {}
+      const game_name = game_config.game_name ?? game_state.game_name
+      const merged = { ...game_state, game_name: game_name || game_state.game_name }
+      return Response.json({ game_state: merged, status: roomRow.status ?? 'LOBBY' })
     }
 
     if (action === 'getMyRole') {
@@ -437,6 +441,7 @@ export async function POST(request) {
 
     if (action === 'submitEvent') {
       const lastEvent = body.lastEvent != null ? body.lastEvent : {}
+      debugLog('API', `submitEvent: ${lastEvent?.type}`, { roomCode })
       const { data: roomRow } = await supabase.from('rooms').select('id').eq('room_code', roomCode).single()
       if (roomRow?.id) {
         try {

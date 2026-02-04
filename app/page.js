@@ -168,8 +168,8 @@ export default function Home() {
     // 生成 clientId 用于标识 host
     const hostClientId = typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36)
     if (typeof window !== 'undefined') {
-      localStorage.setItem('playmaster_host', code)
-      sessionStorage.setItem('playmaster_client_id', hostClientId)
+      localStorage.setItem('yourturn_host', code)
+      sessionStorage.setItem('yourturn_client_id', hostClientId)
     }
     try {
       const res = await fetch('/api/game', {
@@ -179,13 +179,13 @@ export default function Home() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        alert(data.error || '房间创建失败')
+        alert(data.error || 'Failed to create room')
         return
       }
       router.push(`/room/${encodeURIComponent(code)}`)
     } catch (e) {
       console.error('[Home] 房间创建失败:', e?.message || e)
-      alert('房间创建失败：' + (e?.message || '网络错误'))
+      alert('Failed to create room: ' + (e?.message || 'Network error'))
     }
   }
 
@@ -211,8 +211,8 @@ export default function Home() {
         </motion.p>
 
         <div className="flex items-center justify-center gap-7 sm:gap-9">
-          <GameCard title="HOW TO PLAY" onClick={() => setHowToPlayOpen(true)} delay={0.1} />
-          <GameCard title="START AI HOST" onClick={handleStartAIHost} delay={0.2} />
+          <GameCard title="PLAYER GUIDE" onClick={() => setHowToPlayOpen(true)} delay={0.1} />
+          <GameCard title="START AI GAME" onClick={handleStartAIHost} delay={0.2} />
           <GameCard title="SAMPLE GAMES" onClick={() => setSampleGamesOpen(true)} delay={0.3} />
         </div>
       </div>

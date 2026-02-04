@@ -47,14 +47,14 @@ export default function RoomPage() {
   const roleAssignmentTriggeredRef = useRef(false)
   const [clientId] = useState(() => {
     if (typeof window === 'undefined') return ''
-    const key = 'playmaster_client_id'
+    const key = 'yourturn_client_id'
     const stored = sessionStorage.getItem(key)
     if (stored) return stored
     const id = typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36)
     sessionStorage.setItem(key, id)
     return id
   })
-  const isHost = typeof window !== 'undefined' && localStorage.getItem('playmaster_host') === roomCode
+  const isHost = typeof window !== 'undefined' && localStorage.getItem('yourturn_host') === roomCode
 
   useEffect(() => {
     if (!supabase || !roomCode || !clientId) return
@@ -191,8 +191,8 @@ export default function RoomPage() {
   }, [roomCode, router, isHost, clientId])
 
   const handleLeave = () => {
-    if (typeof window !== 'undefined' && localStorage.getItem('playmaster_host') === roomCode) {
-      localStorage.removeItem('playmaster_host')
+    if (typeof window !== 'undefined' && localStorage.getItem('yourturn_host') === roomCode) {
+      localStorage.removeItem('yourturn_host')
     }
     router.push('/')
   }
@@ -207,8 +207,8 @@ export default function RoomPage() {
     e.preventDefault()
     const code = inputCode.trim().toUpperCase()
     if (code.length === 6 && code !== roomCode) {
-      if (typeof window !== 'undefined' && localStorage.getItem('playmaster_host') === roomCode) {
-        localStorage.removeItem('playmaster_host')
+      if (typeof window !== 'undefined' && localStorage.getItem('yourturn_host') === roomCode) {
+        localStorage.removeItem('yourturn_host')
       }
       router.push(`/room/${encodeURIComponent(code)}`)
     }
@@ -224,7 +224,7 @@ export default function RoomPage() {
       return
     }
     
-    const sampleGameIdFromStorage = typeof window !== 'undefined' ? localStorage.getItem('playmaster_sample_game_' + roomCode) : null
+    const sampleGameIdFromStorage = typeof window !== 'undefined' ? localStorage.getItem('yourturn_sample_game_' + roomCode) : null
     const effectiveSampleGameId = sampleGameIdFromStorage || sampleGameId
     if (effectiveSampleGameId === 'neon-heist' || effectiveSampleGameId === 'among-us' || effectiveSampleGameId === 'texas-holdem') {
       setIsProcessing(true)
@@ -236,10 +236,10 @@ export default function RoomPage() {
         })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) {
-          alert(data.error || '加载示例游戏失败')
+          alert(data.error || 'Failed to load sample game')
           return
         }
-        if (sampleGameIdFromStorage) localStorage.removeItem('playmaster_sample_game_' + roomCode)
+        if (sampleGameIdFromStorage) localStorage.removeItem('yourturn_sample_game_' + roomCode)
         setRoomStatus('BRIEFING')
         setGameConfig(data.game_config ?? null)
         setShowHostConsole(false)
@@ -277,7 +277,7 @@ export default function RoomPage() {
   const handleYourTurn = async () => {
     const hasText = rulesText.trim().length > 0
     if (!hasText) {
-      alert('请先输入或粘贴游戏规则，或上传 PDF')
+      alert('Please enter or paste game rules, or upload a PDF')
       return
     }
 
@@ -301,7 +301,7 @@ export default function RoomPage() {
       router.push(`/room/${encodeURIComponent(roomCode)}/briefing`)
     } catch (e) {
       console.error('[Room] 规则解析失败:', e?.message || e)
-      alert('规则解析失败：' + (e?.message || '网络错误'))
+        alert('Failed to parse rules: ' + (e?.message || 'Network error'))
     } finally {
       setIsProcessing(false)
     }
@@ -317,19 +317,19 @@ export default function RoomPage() {
 
   const SAMPLE_SELECT = {
     type: 'SELECT',
-    title: '选择要使用的技能',
+    title: 'Choose skill to use',
     options: [
-      { id: 'hack', label: '破解安全锁' },
-      { id: 'guard', label: '保护队友' },
-      { id: 'trade', label: '物品交易' },
-      { id: 'scan', label: '扫描区域' }
+      { id: 'hack', label: 'Bypass security lock' },
+      { id: 'guard', label: 'Protect teammate' },
+      { id: 'trade', label: 'Trade items' },
+      { id: 'scan', label: 'Scan area' }
     ],
     min: 1,
     max: 2
   }
   const SAMPLE_INPUT = {
     type: 'INPUT',
-    title: '下注金额',
+    title: 'Bet amount',
     value: 100,
     min: 0,
     max: 1000,
@@ -337,13 +337,13 @@ export default function RoomPage() {
   }
   const SAMPLE_CONFIRM = {
     type: 'CONFIRM',
-    title: '发动技能？',
-    message: '是否发动「破解安全锁」？消耗 2 点行动力。'
+    title: 'Use skill?',
+    message: 'Use "Bypass security lock"? Costs 2 action points.'
   }
   const SAMPLE_VIEW = {
     type: 'VIEW',
-    title: '系统通知',
-    content: '安全无人机已启动巡逻。请在本回合内到达接应点，否则将触发警报。\n\n— AI 主持人'
+    title: 'System Notice',
+    content: 'Security drones are now patrolling. Reach the pickup point this turn or the alarm will trigger.\n\n— AI Host'
   }
 
   return (
@@ -387,7 +387,7 @@ export default function RoomPage() {
           >
             <h2 className="text-2xl font-light text-amber-400 text-center mb-6 tracking-[0.3em] uppercase">
               {sampleGameId ? (
-                <>Sample Game: {sampleGameId === 'texas-holdem' ? '德州扑克' : sampleGameId === 'among-us' ? '谁是卧底' : sampleGameId === 'neon-heist' ? 'Neon Heist' : sampleGameId}</>
+                <>Sample Game: {sampleGameId === 'texas-holdem' ? 'Texas Hold\'em' : sampleGameId === 'among-us' ? 'Undercover' : sampleGameId === 'neon-heist' ? 'Neon Heist' : sampleGameId}</>
               ) : (
                 'Game Lobby'
               )}
@@ -549,13 +549,13 @@ export default function RoomPage() {
             </div>
 
             <div className="mb-6 space-y-3">
-              <p className="text-xs text-amber-200/70">请上传或输入游戏规则，让 AI 主持人开始学习</p>
+              <p className="text-xs text-amber-200/70">Upload or enter game rules for the AI host to learn</p>
               <div className="flex flex-col gap-3">
                 <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed border-amber-400/40 cursor-pointer transition-colors hover:bg-amber-500/10"
                   style={{ backgroundColor: 'rgba(4, 55, 42, 0.3)' }}
                 >
                   <Upload className="w-4 h-4 text-amber-200" />
-                  <span className="text-sm text-amber-200/80">{rulesFileName || '上传 .docx / .pdf / .png'}</span>
+                  <span className="text-sm text-amber-200/80">{rulesFileName || 'Upload .docx / .pdf / .png'}</span>
                   <input
                     type="file"
                     accept={ACCEPTED_FILE_TYPES}
@@ -566,7 +566,7 @@ export default function RoomPage() {
                 <textarea
                   value={rulesText}
                   onChange={handleRulesTextChange}
-                  placeholder="或直接输入游戏规则..."
+                  placeholder="Or paste game rules here..."
                   className="w-full min-h-[80px] px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-400/40 text-amber-100 text-sm placeholder-amber-200/40 resize-none focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50"
                   rows={3}
                 />
@@ -581,7 +581,7 @@ export default function RoomPage() {
               {isProcessing ? (
                 <>
                   <RotateCw className="w-4 h-4 animate-spin" />
-                  解析规则中...
+                  Parsing rules...
                 </>
               ) : (
                 <>YOUR TURN</>
@@ -614,7 +614,7 @@ export default function RoomPage() {
 
       {process.env.NODE_ENV === 'development' && (
       <div className="fixed bottom-2 left-0 right-0 z-40 flex flex-wrap items-center justify-center gap-2 px-2 py-2 bg-black/50 backdrop-blur-sm border-t border-amber-400/20">
-        <span className="text-xs text-amber-400/80 mr-1">ActionCard 测试:</span>
+        <span className="text-xs text-amber-400/80 mr-1">ActionCard test:</span>
         <button
           type="button"
           onClick={() => setPendingAction(SAMPLE_SELECT)}

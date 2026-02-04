@@ -14,7 +14,7 @@ export default function AnnouncementView({ announcementScript = '', gameName = '
   const [done, setDone] = useState(false)
   const script = toStr(announcementScript)
   const name = toStr(gameName)
-  const text = script || `欢迎来到《${name}》。`
+  const text = script || `Welcome to ${name}.`
 
   useEffect(() => {
     setDisplayedText('')

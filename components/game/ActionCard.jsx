@@ -83,7 +83,7 @@ function SelectBlock({ action, onSubmit, disabled = false }) {
             : 'border-amber-400/20 bg-white/5 text-gray-500 cursor-not-allowed'
         }`}
       >
-        确认提交
+        Confirm
       </motion.button>
     </div>
   )
@@ -152,7 +152,7 @@ function InputBlock({ action, onSubmit, disabled = false }) {
         onClick={() => !disabled && onSubmit({ value })}
         className={`w-full py-3 rounded-xl font-semibold border-2 border-amber-400 transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : 'bg-amber-500/30 text-amber-100 hover:bg-amber-500/40'}`}
       >
-        确认提交
+        Confirm
       </motion.button>
     </div>
   )
@@ -181,7 +181,7 @@ function ConfirmBlock({ action, onSubmit, disabled = false }) {
           onClick={() => !disabled && onSubmit({ confirmed: true })}
           className={`py-4 rounded-xl border-2 border-emerald-400/70 font-semibold transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : 'bg-emerald-500/30 text-emerald-100 hover:bg-emerald-500/50 shadow-lg shadow-emerald-500/20'}`}
         >
-          是 / 发动
+          Yes / Act
         </motion.button>
         <motion.button
           type="button"
@@ -191,7 +191,7 @@ function ConfirmBlock({ action, onSubmit, disabled = false }) {
           onClick={() => !disabled && onSubmit({ confirmed: false })}
           className={`py-4 rounded-xl border-2 border-red-400/60 font-semibold transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : 'bg-red-500/25 text-red-100 hover:bg-red-500/40 shadow-lg shadow-red-500/20'}`}
         >
-          否 / 跳过
+          No / Skip
         </motion.button>
       </div>
     </div>
@@ -218,7 +218,7 @@ function ViewBlock({ action, onConfirm, disabled = false }) {
         onClick={() => !disabled && onConfirm()}
         className={`w-full py-3 rounded-xl font-semibold border-2 border-amber-400 transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : 'bg-amber-500/30 text-amber-100 hover:bg-amber-500/40'}`}
       >
-        我已阅读 / 确认
+        I have read / Confirm
       </motion.button>
     </div>
   )

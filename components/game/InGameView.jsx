@@ -23,7 +23,7 @@ function CaliforniaTime() {
     const id = setInterval(() => setTime(fmt()), 1000)
     return () => clearInterval(id)
   }, [])
-  return <span>加州 {time} PT</span>
+  return <span>California {time} PT</span>
 }
 
 const GOLD = '#D4AF37'
@@ -39,11 +39,7 @@ const PROP_ICONS = {
   wood: '🪵',
   HP: '❤️',
   hp: '❤️',
-  罐头: '🥫',
-  木材: '🪵',
-  信用点: '💰',
-  行动力: '⚡',
-  篝火等级: '🔥'
+  campfire_level: '🔥'
 }
 
 function getPropIcon(key) {
@@ -67,14 +63,14 @@ function safeNum(v) {
 }
 
 export default function InGameView({ gameState = {}, myRole = {}, myInventory = {}, clientId = '', onBack, children, submitBusy = false, submitError = null }) {
-  const gameName = toStr(gameState.game_name) || '游戏进行中'
+  const gameName = toStr(gameState.game_name) || 'Game in Progress'
   const currentPhase = toStr(gameState.current_phase) || '—'
   const dayRound = gameState.current_day_round ?? 1
-  const inGameTime = gameState.in_game_time ?? '深夜 02:00'
+  const inGameTime = gameState.in_game_time ?? '02:00 AM'
   const activePlayer = gameState.active_player ?? ''
   const gameLogs = Array.isArray(gameState.game_logs) ? gameState.game_logs : []
   const allLogs = [...gameLogs].reverse()
-  const isGameOver = gameState.phase === 'game_over' || currentPhase === '游戏结束'
+  const isGameOver = gameState.phase === 'game_over' || currentPhase === 'Game Over'
   const winner = gameState.winner
   const statusMessage = gameState.status_message
   const communityCards = Array.isArray(gameState.community_cards) ? gameState.community_cards : []
@@ -102,7 +98,7 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
         )}
         <header className="flex items-center justify-between px-4 md:px-6 py-2.5 border-b border-amber-400/15 bg-black/30 shrink-0">
           <div className="text-xs md:text-sm font-medium text-amber-400/80 tracking-widest">
-            {submitBusy ? 'AI Host Processing, please wait...' : `第 ${dayRound} 天 / 轮`}
+            {submitBusy ? 'AI Host Processing, please wait...' : (currentPhase && currentPhase !== '—' ? currentPhase : (dayRound > 1 ? `Round ${dayRound}` : 'Game in Progress'))}
           </div>
           <h1 className="text-lg md:text-xl font-bold text-amber-300/95 tracking-wider">
             {gameName}
@@ -117,7 +113,7 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
           <aside className="flex flex-col gap-3 p-3 md:p-4 border-r border-amber-400/10 bg-black/20 order-2 md:order-1">
             <section className={`p-3 rounded-xl ${PANEL}`}>
               <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">
-                {isWordGame ? '我的词语' : cards.length > 0 ? '我的手牌' : '我的角色'}
+                {isWordGame ? 'My Word' : cards.length > 0 ? 'My Hand' : 'My Role'}
               </p>
               {isWordGame ? (
                 <p className="text-sm font-bold text-amber-300 truncate">{myWord}</p>
@@ -125,13 +121,13 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
                 <p className="text-gray-500 text-xs">—</p>
               ) : (
                 <p className="text-xs text-amber-200/90">
-                  {cards.map((c) => c.roleName ?? '未知').join(' · ')}
+                  {cards.map((c) => c.roleName ?? 'Unknown').join(' · ')}
                 </p>
               )}
-              <p className="text-[10px] text-amber-500/50 mt-1">卡牌详见中央区域</p>
+              <p className="text-[10px] text-amber-500/50 mt-1">See cards in center area</p>
             </section>
             <section className={`p-3 rounded-xl ${PANEL}`}>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">剩余物资</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">Resources</p>
               {!myInventory || Object.keys(myInventory).length === 0 ? (
                 <p className="text-gray-500 text-xs">—</p>
               ) : (
@@ -158,7 +154,7 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
               <div className="w-full max-w-2xl mx-auto space-y-4">
                 {communityCards.length > 0 && (
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">抽到的牌 / 公共牌</p>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">Community Cards</p>
                     <div className="flex flex-wrap justify-center gap-2">
                       {communityCards.map((c, i) => (
                         <div
@@ -173,7 +169,7 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
                 )}
                 {cards.length > 0 && !isWordGame && (
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">我的手牌</p>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">My Hand</p>
                     <div className="flex flex-wrap justify-center gap-2">
                       {cards.map((card, i) => (
                         <div
@@ -189,18 +185,18 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
                 )}
                 {isWordGame && myWord && (
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">我的词语</p>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-2">My Word</p>
                     <p className="text-lg font-bold text-amber-300 text-center">{myWord}</p>
                   </div>
                 )}
                 {(pot != null || currentBet != null) && (
                   <div className="flex justify-center gap-4 text-sm text-amber-300/90">
-                    {pot != null && <span>底池: {pot}</span>}
-                    {currentBet != null && <span>当前下注: {currentBet}</span>}
+                    {pot != null && <span>Pot: {pot}</span>}
+                    {currentBet != null && <span>Current Bet: {currentBet}</span>}
                   </div>
                 )}
                 {communityCards.length === 0 && cards.length === 0 && !isWordGame && !pot && currentBet == null && (
-                  <p className="text-gray-500 text-xs text-center py-4">暂无卡牌</p>
+                  <p className="text-gray-500 text-xs text-center py-4">No cards yet</p>
                 )}
               </div>
             </section>
@@ -213,9 +209,19 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
                 animate={{ opacity: 1, scale: 1 }}
                 className="text-center max-w-md"
               >
-                <p className="text-2xl md:text-3xl font-bold text-amber-300 mb-4">游戏结束</p>
+                <p className="text-2xl md:text-3xl font-bold text-amber-300 mb-4">Game Over</p>
                 <p className="text-xl font-semibold text-amber-200/95">
-                  {toStr(statusMessage) || (winner === 'civilians' ? '平民找出所有卧底，平民胜！' : winner === 'spies' ? '卧底坚持到最后，卧底胜！' : '')}
+                  {(() => {
+                    if (winner === 'civilians') return 'Civilians found all spies, civilians win!'
+                    if (winner === 'spies') return 'Spies survived to the end, spies win!'
+                    if (winner && typeof winner === 'string' && gameState.winner_hand) {
+                      const handText = gameState.winner_hand ? `Showdown: ${gameState.winner_hand}, ` : ''
+                      return String(winner) === String(clientId)
+                        ? `${handText}You win!`
+                        : `${handText}Opponent wins.`
+                    }
+                    return toStr(statusMessage) || ''
+                  })()}
                 </p>
               </motion.div>
             )}
@@ -225,8 +231,8 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
                 animate={{ opacity: 1, scale: 1 }}
                 className="text-center"
               >
-                <p className="text-2xl md:text-3xl font-bold text-amber-300 mb-1">轮到你了</p>
-                <p className="text-sm text-amber-500/80">请在此处完成操作</p>
+                <p className="text-2xl md:text-3xl font-bold text-amber-300 mb-1">Your Turn</p>
+                <p className="text-sm text-amber-500/80">Complete your action here</p>
               </motion.div>
             )}
             {!children && !isGameOver && !isMyTurn && (
@@ -242,8 +248,8 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
                 >
                   <span className="text-2xl text-amber-400/60">⏳</span>
                 </motion.div>
-                <p className="text-lg font-semibold text-amber-200/90">等待中</p>
-                <p className="text-xs text-gray-500">其他玩家操作后将更新</p>
+                <p className="text-lg font-semibold text-amber-200/90">Waiting</p>
+                <p className="text-xs text-gray-500">Updates after other players act</p>
               </motion.div>
             )}
             </section>
@@ -256,24 +262,24 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
               transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
               className={`p-3 rounded-xl border border-amber-400/30 ${PANEL}`}
             >
-              <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-1">当前阶段</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-1">Current Phase</p>
               <p className="text-sm font-bold text-amber-300 truncate">{currentPhase}</p>
             </motion.section>
             <section className={`p-3 rounded-xl border-2 ${PANEL} ${isMyTurn ? 'border-amber-400/50 ring-1 ring-amber-400/30' : ''}`}>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-1">行动提醒</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 mb-1">Action Reminder</p>
               {isMyTurn ? (
-                <p className="text-sm font-bold text-amber-300">轮到你了！</p>
+                <p className="text-sm font-bold text-amber-300">Your turn!</p>
               ) : (
                 <p className="text-xs text-amber-200/80 truncate">{activePlayer ? `UID: ${String(activePlayer).slice(0, 8)}…` : '—'}</p>
               )}
             </section>
             <section className={`flex-1 min-h-[140px] flex flex-col rounded-xl overflow-hidden ${PANEL}`}>
               <p className="text-[10px] uppercase tracking-[0.2em] text-amber-500/70 px-3 py-2 border-b border-amber-400/10">
-                系统公告
+                System Announcements
               </p>
               <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1.5 bg-black/20 min-h-[120px]">
                 {allLogs.length === 0 ? (
-                  <p className="text-gray-500 text-xs">暂无</p>
+                  <p className="text-gray-500 text-xs">None</p>
                 ) : (
                   allLogs.map((line, i) => (
                     <p key={i} className="text-[11px] text-amber-100/80 leading-snug">
@@ -293,7 +299,7 @@ export default function InGameView({ gameState = {}, myRole = {}, myInventory = 
               onClick={onBack}
               className="text-xs text-gray-500 hover:text-amber-400 transition-colors"
             >
-              返回身份页
+              Back to Role
             </button>
           </div>
         )}

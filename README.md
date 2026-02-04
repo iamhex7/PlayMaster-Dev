@@ -1,122 +1,184 @@
-# PlayMaster
+# YourTurn
 
-> Gemini 3 Hackathon 参赛作品
+<p align="center">
+  <strong>An AI-Powered Tabletop Pilot</strong><br>
+  <em>by FOMO Games</em>
+</p>
 
-利用 Gemini 3 多模态能力，实现**规则书一键转游戏引擎**——上传或粘贴桌游规则，AI 自动解析为结构化游戏配置，支持房间同步、全员确认、身份自动分发。
-
----
-
-## 核心亮点
-
-- **规则解析**：支持文本、PDF 等多模态输入，Gemini 3 自动提取 `roles`、`phases`、`win_condition`、`opening_speech` 等
-- **房间同步**：Supabase Realtime 实时更新房间状态、在线人数、宣讲确认进度
-- **全员确认**：基于 `briefing_acks` 的全员「我已了解」逻辑，支持乐观更新与 Realtime 同步
-- **身份分发**：`dealer.js` 确定性发牌，基于 `briefing_acks` 名单自动分配角色卡，防刷、防重复
+<p align="center">
+  Focus on the play, not the paperwork — it's <strong>YOUR TURN</strong> to enjoy the game.
+</p>
 
 ---
 
-## 技术栈
+## Overview
 
-| 技术 | 用途 |
-|------|------|
-| Next.js 14 | App Router、API Routes |
-| Supabase | Realtime、Auth、PostgreSQL |
-| Gemini 3 API | 规则解析、多模态输入 |
-| Tailwind CSS | 样式 |
-| Framer Motion | 动画 |
+**YourTurn** transforms any board game into a seamless digital experience. Upload or paste your game rules, and our AI Host—powered by Google Gemini—parses them into a structured game engine. No more complex rulebooks, no more sacrificing a player to act as host. Create a room, share the code, and play together in seconds.
 
 ---
 
-## 快速开始
+## Features
 
-### 1. 安装依赖
+| Feature | Description |
+|---------|-------------|
+| **AI Rule Parsing** | Upload text, PDF, or paste rules. Gemini extracts roles, phases, win conditions, and opening scripts automatically. |
+| **Room Sync** | Supabase Realtime keeps room state, player count, and briefing progress in sync across all devices. |
+| **All-Ready Confirmation** | Players confirm they've read the rules; the game starts only when everyone is ready. |
+| **Deterministic Role Distribution** | Seeded shuffle ensures fair, reproducible role assignment. No re-deals on refresh. |
+| **Sample Games** | Built-in support for **Texas Hold'em**, **Undercover** (social deduction), and **Neon Heist** (roleplay). |
+| **AI Game Master** | The AI orchestrates game flow, tracks resources, and delivers interactive prompts (SELECT, INPUT, CONFIRM, VIEW). |
+
+---
+
+## How to Use
+
+### As a Player
+
+1. **Start** — Click *START AI GAME* on the home screen. A 6-character room code is generated.
+2. **Share** — Send the room code to friends. They enter it to join (no sign-up required).
+3. **Choose a Game** — Pick a sample game or upload custom rules via the Host Console.
+4. **Briefing** — Read the rules and click *I'm Ready* when done. Wait for everyone to confirm.
+5. **Reveal Roles** — Flip your card to see your role or word. Click *Continue* to enter the game.
+6. **Play** — Follow the AI Host's prompts. Make choices, enter values, or confirm actions as they appear.
+
+### As a Host
+
+- Use the **Host Console** (shown when no sample game is selected) to upload a `.docx`, `.pdf`, or `.png` rulebook, or paste rules directly.
+- The AI parses the content and builds the game configuration. Once ready, the room moves to the briefing phase.
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- **Node.js** 18+ 
+- **npm** or **yarn**
+- **Supabase** account
+- **Google AI** (Gemini) API key
+
+### 1. Clone & Install
 
 ```bash
+git clone <repository-url>
+cd YourTurn
 npm install
 ```
 
-### 2. 配置环境变量
+### 2. Environment Variables
 
-在项目根目录创建 `.env.local`，填写：
+Create `.env.local` in the project root:
 
-```
-# Supabase（必填）
-NEXT_PUBLIC_SUPABASE_URL=你的 Supabase 项目 URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY=你的 Supabase Anon Key
+```env
+# Supabase (required)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
-# 可选：服务端需更高权限时使用
-SUPABASE_SERVICE_ROLE_KEY=你的 Service Role Key
+# Gemini (required for rule parsing)
+GEMINI_KEY_1=your-google-ai-api-key
 
-# Gemini（规则解析必填，二选一）
-GEMINI_API_KEY=你的 Google Generative AI API Key
-# 或
-GOOGLE_GENERATIVE_AI_API_KEY=你的 Google Generative AI API Key
+# Optional: higher-privilege Supabase access
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
-### 3. Supabase 数据库
+### 3. Supabase Setup
 
-执行项目根目录下 SQL 文件完成建表与函数配置：
+Run the SQL scripts in your Supabase project (SQL Editor):
 
-- `supabase-rooms-table.sql`：房间表
-- `supabase-players-table.sql`：玩家表
-- `supabase-rooms-player-count.sql`：`player_count` 列
-- `supabase-briefing-ack-rpc.sql`：`append_briefing_ack` 函数（可选，推荐）
+| File | Purpose |
+|------|---------|
+| `supabase-rooms-table.sql` | Rooms table |
+| `supabase-players-table.sql` | Players table |
+| `supabase-rooms-player-count.sql` | Player count column |
+| `supabase-briefing-ack-rpc.sql` | Atomic briefing-ack function (recommended) |
 
-详见 [SUPABASE-SETUP.md](./SUPABASE-SETUP.md)。
+See [SUPABASE-SETUP.md](./SUPABASE-SETUP.md) for detailed instructions.
 
-### 4. 启动开发服务器
+### 4. Run
 
 ```bash
 npm run dev
 ```
 
-访问 [http://localhost:3000](http://localhost:3000)
+Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## 当前进度
+## Tech Stack
 
-| 功能 | 状态 |
-|------|------|
-| 自动规则解析（文本 / PDF） | ✅ |
-| 房间同步（Realtime） | ✅ |
-| 基于 `briefing_acks` 的全员确认 | ✅ |
-| 基于 `dealer.js` 的自动化身份分配 | ✅ |
-| 身份揭晓页（role） | ✅ |
+| Layer | Technology |
+|-------|------------|
+| **Framework** | Next.js 14 (App Router) |
+| **Database & Realtime** | Supabase (PostgreSQL + Realtime) |
+| **AI** | Google Gemini API (`@google/generative-ai`) |
+| **Styling** | Tailwind CSS |
+| **Animation** | Framer Motion |
+| **Icons** | Lucide React |
 
 ---
 
-## 项目结构
+## Project Structure
 
 ```
-PlayMaster-Dev/
+YourTurn/
 ├── app/
-│   ├── globals.css
-│   ├── layout.js
-│   ├── page.js                 # 主页：创建 / 进入房间
-│   ├── api/game/route.js       # 统一 API：enterRoom / parseRules / briefingAck / initializeGame / getMyRole
+│   ├── layout.js              # Root layout, metadata
+│   ├── page.js                # Home: START AI GAME, SAMPLE GAMES, PLAYER GUIDE
+│   ├── api/
+│   │   ├── game/route.js      # Game API: enterRoom, parseRules, briefingAck, initializeGame, getMyRole, submitEvent
+│   │   └── debug-logs/        # Debug log polling (dev)
 │   └── room/[roomCode]/
-│       ├── page.js             # 房间页 / Host Console
-│       ├── briefing/page.js    # 规则宣讲页
-│       └── role/page.js        # 身份揭晓页
+│       ├── page.js            # Lobby / Host Console
+│       ├── briefing/page.js   # Rules briefing, I'm Ready
+│       └── role/page.js       # Role reveal, in-game view
 ├── components/
-│   ├── ActionCard.js           # BigActionButton 等
-│   └── AnnouncementView.js     # 全屏开场白
+│   ├── game/                  # InGameView, ActionCard, DebugPanel
+│   ├── ui/                    # BigActionButton
+│   ├── HowToPlayModal.js      # Player guide
+│   ├── SampleGamesFlip.js     # Sample game picker
+│   └── AnnouncementView.js     # Full-screen opening speech
 ├── lib/
-│   ├── supabase.js             # 前端 Supabase 客户端
-│   ├── gemini.js               # Gemini 规则解析
-│   └── dealer.js               # 确定性发牌逻辑
-├── supabase-*.sql              # 数据库脚本
-└── SUPABASE-SETUP.md
+│   ├── gemini.js              # Rule parsing, AI calls
+│   ├── gemini/                # GM engine, agent, initializer
+│   ├── dealer.js              # Deterministic deal, Among Us word pairs
+│   ├── game-schema.js         # Schema validation
+│   ├── game-state-mapper.js   # Map raw state for UI
+│   ├── poker-evaluator.js     # Texas Hold'em hand ranking
+│   ├── constants.js           # Sample games config
+│   └── supabase.js            # Supabase client
+├── supabase-*.sql             # Database scripts
+└── SUPABASE-SETUP.md          # Supabase setup guide
 ```
 
 ---
 
-## 依赖说明
+## Scripts
 
-所有 `package.json` 中已安装依赖均有使用：
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build |
+| `npm run start` | Start production server |
+| `npm run lint` | Run ESLint |
 
-- `@google/generative-ai`：Gemini API（`lib/gemini.js`）
-- `@supabase/supabase-js`：Supabase 客户端
-- `framer-motion`：页面与组件动画
-- `lucide-react`：图标
+---
+
+## Sample Games
+
+| Game | Players | Description |
+|------|---------|-------------|
+| **Texas Hold'em** | 1–10 | Classic poker. Fold, check, call, or raise. Deterministic AI handles phases and showdown. |
+| **Undercover** | 4–12 | Social deduction. Civilians share a word; spies get a similar one. Describe and vote to find the spy. |
+| **Neon Heist** | 3–5 | Roleplay heist. Hacker, Bodyguard, Fixer. Infiltrate, crack the vault, extract. |
+
+---
+
+## License
+
+This project is private. All rights reserved by FOMO Games.
+
+---
+
+<p align="center">
+  <strong>YourTurn</strong> — An AI-Powered Tabletop Pilot by <strong>FOMO Games</strong>
+</p>
